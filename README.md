@@ -1,4 +1,4 @@
-# QSFI–PBH: standalone Mathematica Notebooks
+# QSFI–PBH
 
 ## Run a new calculation
 
