@@ -1,0 +1,72 @@
+{
+  "dataset": "Planck PR4 binned primordial bispectrum shape reconstruction",
+  "data_kind": "Observation-derived measured shape and simulation-calibrated covariance with triangle-bin coordinates; not QSFI theory coefficients, templates, or fitted QSFI parameters.",
+  "upstream_repository": "https://github.com/oliverphilcox/Binned-Bispectrum-Shape",
+  "upstream_data_url": "https://github.com/oliverphilcox/Binned-Bispectrum-Shape/blob/main/binned_shape_data.npz",
+  "upstream_license_url": "https://github.com/oliverphilcox/Binned-Bispectrum-Shape/blob/main/LICENSE",
+  "reference": {
+    "author": "Oliver H. E. Philcox",
+    "title": "What Shape is the Inflationary Bispectrum?",
+    "year": 2026,
+    "arxiv": "2603.17004",
+    "url": "https://arxiv.org/abs/2603.17004"
+  },
+  "license": "MIT; full upstream copyright notice and permission text are included in LICENSE.",
+  "conversion": "One-time container conversion of the four unmodified float64 arrays to JSON decimal numbers; all entries round-trip to the original IEEE754 float64 bytes. The native Mathematica workflow reads this JSON directly and does not invoke reference.",
+  "source_npz": {
+    "filename": "binned_shape_data.npz",
+    "sha256": "46e301d2989d8ea2e1a6e7cc56c70793825e695294d1ca04fe005fa7a757517e",
+    "bytes": 213203,
+    "included_in_release": false
+  },
+  "release_json": {
+    "filename": "planck_pr4_binned_shape.json",
+    "sha256": "88887fa685289bc723b601801100d40bc19c76024e519603672a5fdd33ff7325",
+    "bytes": 560697
+  },
+  "upstream_license_sha256": "db28fb48040f4543e71967febca6b12938a3007f2ff4834b4d0d00a83f995477",
+  "bins": 171,
+  "covariance_calibration_simulations": 400,
+  "arrays": {
+    "x": {
+      "shape": [
+        171
+      ],
+      "dtype": "IEEE754 float64",
+      "sha256_float64_little_endian_row_major": "aafcaecff05d609e1a69f21c9940d71791da988e10bcfee9bee6162e49cbfce2",
+      "round_trip_bytes_equal": true
+    },
+    "y": {
+      "shape": [
+        171
+      ],
+      "dtype": "IEEE754 float64",
+      "sha256_float64_little_endian_row_major": "945e9ef5d7362d107a81607eb9dd80d455efd6618a0b69f5709cc8f22c42df8f",
+      "round_trip_bytes_equal": true
+    },
+    "data": {
+      "shape": [
+        171
+      ],
+      "dtype": "IEEE754 float64",
+      "sha256_float64_little_endian_row_major": "62086f028a943e451c3f210c905e96de54145e0c91437b8630cc45b4118aef9f",
+      "round_trip_bytes_equal": true
+    },
+    "cov": {
+      "shape": [
+        171,
+        171
+      ],
+      "dtype": "IEEE754 float64",
+      "sha256_float64_little_endian_row_major": "f0a1a16b6688840c2c3f11e3f24b11f3a219a1ddceaa2be756fe8a3ba93dffba",
+      "round_trip_bytes_equal": true
+    }
+  },
+  "schema": {
+    "x": "k1/k3 triangle-bin coordinate",
+    "y": "k2/k3 triangle-bin coordinate",
+    "data": "Measured binned primordial bispectrum shape S_hat",
+    "cov": "Full covariance matrix of the measured shape"
+  },
+  "runtime_dependencies": "Mathematica native JSON import only; the NPZ container and this conversion helper are not needed at runtime."
+}

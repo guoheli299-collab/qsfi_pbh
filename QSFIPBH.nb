@@ -1,0 +1,489 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Wolfram 14.3' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       154,          7]
+NotebookDataLength[     18258,        479]
+NotebookOptionsPosition[     14024,        397]
+NotebookOutlinePosition[     14449,        414]
+CellTagsIndexPosition[     14406,        411]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["QSFI\[Dash]PBH: Mathematica", "Title",ExpressionUUID->"2311fd10-a6fb-48c1-9004-69b2847e8d4f"],
+
+Cell["Mathematica 13.3", "Subtitle",
+ CellChangeTimes->{
+  4.002856357808137*^9},ExpressionUUID->"f19e9e67-26bc-4ccd-acf2-\
+a15bc67b1cba"],
+
+Cell[CellGroupData[{
+
+Cell["1. Initialize", "Section",ExpressionUUID->"c24650db-17df-48c0-b8ac-53ac748bc023"],
+
+Cell["Evaluate this section to load the five modules.", "Text",ExpressionUUID->"3d708023-a426-472e-bf56-e32b922aa551"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"ClearAll", "[", "QSFILoadNotebookCode", "]"}], ";"}], 
+  " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"43829ac7-51f7-4715-ad2c-6443416a658b"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"QSFILoadNotebookCode", "[", "path_String", "]"}], " ", ":=", " ", 
+    RowBox[{"Module", "[", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{"book", ",", " ", "boxes", ",", " ", "results"}], "}"}], ",", 
+      " ", "\n", "   ", 
+      RowBox[{
+       RowBox[{"book", " ", "=", " ", 
+        RowBox[{"Get", "[", "path", "]"}]}], ";", " ", 
+       RowBox[{"If", "[", 
+        RowBox[{
+         RowBox[{
+          RowBox[{"Head", "[", "book", "]"}], " ", "=!=", " ", "Notebook"}], ",",
+          " ", 
+         RowBox[{"Return", "[", 
+          RowBox[{"Failure", "[", 
+           RowBox[{"\"\<NotebookFormat\>\"", ",", " ", "\n", "       ", 
+            RowBox[{"Association", "[", 
+             
+             RowBox[{"\"\<MessageTemplate\>\"", " ", "->", 
+              " ", "\"\<Expected a native Mathematica Notebook.\>\""}], 
+             "]"}]}], "]"}], "]"}]}], "]"}], ";", " ", "\n", "    ", 
+       RowBox[{"boxes", " ", "=", " ", 
+        RowBox[{"Cases", "[", 
+         RowBox[{"book", ",", " ", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"Cell", "[", 
+             RowBox[{
+              RowBox[{"BoxData", "[", "box_", "]"}], ",", " ", "\"\<Input\>\"",
+               ",", " ", "options___"}], "]"}], " ", "/;", " ", "\n", 
+            "        ", 
+            RowBox[{"TrueQ", "[", 
+             RowBox[{
+              RowBox[{"InitializationCell", " ", "/.", " ", 
+               RowBox[{"{", "options", "}"}]}], " ", "/.", " ", 
+              RowBox[{"InitializationCell", " ", "->", " ", "False"}]}], 
+             "]"}]}], " ", ":>", " ", "box"}], ",", " ", "Infinity"}], 
+         "]"}]}], ";", " ", "\n", "    ", 
+       RowBox[{"If", "[", 
+        RowBox[{
+         RowBox[{"boxes", " ", "===", " ", 
+          RowBox[{"{", "}"}]}], ",", " ", 
+         RowBox[{"Return", "[", 
+          RowBox[{"Failure", "[", 
+           RowBox[{"\"\<NotebookCells\>\"", ",", " ", 
+            RowBox[{"Association", "[", 
+             
+             RowBox[{"\"\<MessageTemplate\>\"", " ", "->", " ", "\n", 
+              "         ", "\"\<No executable initialization cells \
+found.\>\""}], "]"}]}], "]"}], "]"}]}], "]"}], ";", " ", "\n", "    ", 
+       RowBox[{"results", " ", "=", " ", 
+        RowBox[{
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"ReleaseHold", "[", 
+            RowBox[{"ToExpression", "[", 
+             RowBox[{
+             "#1", ",", " ", "StandardForm", ",", " ", "HoldComplete"}], 
+             "]"}], "]"}], " ", "&"}], " ", ")"}], " ", "/@", " ", 
+         "boxes"}]}], ";", " ", "\n", "    ", 
+       RowBox[{"If", "[", 
+        RowBox[{
+         RowBox[{"AnyTrue", "[", 
+          RowBox[{"results", ",", " ", "FailureQ"}], "]"}], ",", " ", 
+         RowBox[{"FirstCase", "[", 
+          RowBox[{"results", ",", " ", "_Failure"}], "]"}], ",", " ", 
+         RowBox[{"Length", "[", "boxes", "]"}]}], "]"}]}]}], "]"}]}], ";"}], 
+  " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"3b1850a8-1fc8-4945-8531-d7be8fa71b01"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"qsfiNotebookRoot", " ", "=", " ", 
+    RowBox[{"If", "[", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"ValueQ", "[", "qsfiNotebookDirectory", "]"}], " ", "&&", " ", 
+       
+       RowBox[{"StringQ", "[", "qsfiNotebookDirectory", "]"}], " ", "&&", " ",
+        "\n", "    ", 
+       RowBox[{"DirectoryQ", "[", "qsfiNotebookDirectory", "]"}]}], ",", " ", 
+      
+      RowBox[{"ExpandFileName", "[", "qsfiNotebookDirectory", "]"}], ",", " ", 
+      RowBox[{"NotebookDirectory", "[", "]"}]}], "]"}]}], ";"}], 
+  " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"31a58c00-8439-42f9-88e1-e1040cd0a6af"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"QSFIPBH`$ProjectRoot", " ", "=", " ", "qsfiNotebookRoot"}], ";"}],
+   " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"18b5c8a3-2450-4384-ac6f-559828f3410c"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"qsfiModuleLoads", " ", "=", " ", 
+    RowBox[{
+     RowBox[{"(", 
+      RowBox[{
+       RowBox[{"QSFILoadNotebookCode", "[", 
+        RowBox[{"FileNameJoin", "[", 
+         RowBox[{"{", 
+          RowBox[{
+          "qsfiNotebookRoot", ",", " ", "\"\<Notebooks\>\"", ",", " ", "\n", 
+           "       ", 
+           RowBox[{"StringJoin", "[", 
+            RowBox[{"#1", ",", " ", "\"\<.nb\>\""}], "]"}]}], "}"}], "]"}], 
+        "]"}], " ", "&"}], " ", ")"}], " ", "/@", " ", 
+     RowBox[{"{", 
+      RowBox[{"\"\<Core\>\"", ",", " ", "\"\<Propagators\>\"", ",", 
+       " ", "\"\<Projection\>\"", ",", " ", "\"\<Figures\>\"", ",", " ", "\n",
+        "    ", "\"\<Workflow\>\""}], "}"}]}]}], ";"}], " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"516bf715-21ec-4b54-823b-ea6289e2c0b0"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"If", "[", 
+    RowBox[{
+     RowBox[{"AnyTrue", "[", 
+      RowBox[{"qsfiModuleLoads", ",", " ", "FailureQ"}], "]"}], ",", " ", 
+     RowBox[{"FirstCase", "[", 
+      RowBox[{"qsfiModuleLoads", ",", " ", "_Failure"}], "]"}], ",", " ", 
+     "\n", "  ", 
+     RowBox[{"QSFIPBH`RunStatusPanel", "[", "QSFIPBH`$RunState", "]"}]}], 
+    "]"}], ";"}], " "}]], "Input",
+ InitializationCell->
+  True,ExpressionUUID->"31a08944-6a5e-409d-aa13-6b739878e645"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["2. Run the full calculation", "Section",ExpressionUUID->"d2d6ed3e-253e-4d57-99d7-c97950bebcb2"],
+
+Cell["\<\
+Evaluate this section to calculate all cases, fit the CMB template and export \
+figures. The completion marker is written after verification.\
+\>", "Text",ExpressionUUID->"8b588282-e52a-4003-ac43-27151096adcb"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"runOptions", " ", "=", " ", 
+    RowBox[{"Association", "[", 
+     RowBox[{"\"\<fresh\>\"", " ", "->", " ", "True"}], "]"}]}], ";"}], 
+  " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"2fb08ac0-ec98-4cd5-8de8-e72e6af306c1"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"runResult", " ", "=", " ", 
+    RowBox[{"Monitor", "[", 
+     RowBox[{
+      RowBox[{"QSFIPBH`RunStandalone", "[", 
+       RowBox[{"Automatic", ",", " ", "runOptions"}], "]"}], ",", " ", "\n", 
+      "   ", 
+      RowBox[{"Dynamic", "[", 
+       RowBox[{
+        RowBox[{"QSFIPBH`RunStatusPanel", "[", "QSFIPBH`$RunState", "]"}], ",",
+         " ", 
+        RowBox[{"UpdateInterval", " ", "->", " ", "1"}]}], "]"}]}], "]"}]}], 
+   ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"26be33f2-ba1f-47ab-846f-f561d4683b6b"],
+
+Cell[BoxData[
+ RowBox[{"QSFIPBH`RunStatusPanel", "[", "runResult", "]"}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"886f3141-ee64-481d-9dc7-443de96391b3"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["3. Load saved results", "Section",ExpressionUUID->"c2f01e66-a318-4027-b799-4838c62ba039"],
+
+Cell["Verify and load the results from the completed run.", "Text",ExpressionUUID->"06a0cbf3-f35b-4c6d-b9d9-ec91f70500d4"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"savedResults", " ", "=", " ", 
+    RowBox[{"If", "[", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"AssociationQ", "[", "runResult", "]"}], " ", "&&", " ", 
+       RowBox[{"TrueQ", "[", 
+        RowBox[{"Lookup", "[", 
+         RowBox[{
+         "runResult", ",", " ", "\"\<success\>\"", ",", " ", "False"}], "]"}],
+         "]"}]}], ",", " ", "\n", "   ", 
+      RowBox[{"QSFIPBH`LoadRunResults", "[", 
+       RowBox[{"runResult", "[", "\"\<output_directory\>\"", "]"}], "]"}], ",",
+       " ", 
+      RowBox[{"Failure", "[", 
+       RowBox[{"\"\<NoSuccessfulRun\>\"", ",", " ", "\n", "    ", 
+        RowBox[{"Association", "[", 
+         RowBox[{"\"\<MessageTemplate\>\"", " ", "->", 
+          " ", "\"\<See run status for details.\>\""}], "]"}]}], "]"}]}], 
+     "]"}]}], ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"c09f13e2-df4a-4791-82e9-a13ea2a74e15"],
+
+Cell[BoxData[
+ RowBox[{"If", "[", 
+  RowBox[{
+   RowBox[{"AssociationQ", "[", "savedResults", "]"}], ",", " ", 
+   RowBox[{"Association", "[", 
+    RowBox[{
+     RowBox[{"\"\<Status\>\"", " ", "->", " ", "\n", "   ", 
+      RowBox[{"savedResults", "[", "\"\<completion_message\>\"", "]"}]}], ",",
+      " ", 
+     RowBox[{"\"\<Coefficient rows\>\"", " ", "->", " ", "\n", "   ", 
+      RowBox[{"Length", "[", 
+       RowBox[{"savedResults", "[", "\"\<coefficients\>\"", "]"}], "]"}]}], ",",
+      " ", 
+     RowBox[{"\"\<Output directory\>\"", " ", "->", " ", 
+      RowBox[{"savedResults", "[", "\"\<output_directory\>\"", "]"}]}], ",", 
+     " ", "\n", "  ", 
+     RowBox[{"\"\<Production precision\>\"", " ", "->", " ", 
+      RowBox[{"savedResults", "[", "\"\<manuscript_usable\>\"", "]"}]}]}], 
+    "]"}], ",", " ", "savedResults"}], "]"}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"525df799-76a8-4664-b093-b7a884a5563b"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["4. Resume an interrupted run", "Section",ExpressionUUID->"15cba0fe-8414-4032-815c-3f45dfaa83ec"],
+
+Cell["\<\
+Define ResumeQSFIRun and supply an existing run directory to resume.\
+\>", "Text",ExpressionUUID->"ad0406e7-ea09-4d57-86df-2e7f9acf91e6"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"ClearAll", "[", "ResumeQSFIRun", "]"}], ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"6092467d-6889-411c-a3f3-44dd84074073"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"ResumeQSFIRun", "[", "directory_String", "]"}], " ", ":=", " ", 
+    RowBox[{"Monitor", "[", 
+     RowBox[{
+      RowBox[{"QSFIPBH`RunStandalone", "[", 
+       RowBox[{"directory", ",", " ", "\n", "    ", 
+        RowBox[{"Association", "[", 
+         RowBox[{"\"\<fresh\>\"", " ", "->", " ", "False"}], "]"}]}], "]"}], ",",
+       " ", 
+      RowBox[{"Dynamic", "[", 
+       RowBox[{
+        RowBox[{"QSFIPBH`RunStatusPanel", "[", "QSFIPBH`$RunState", "]"}], ",",
+         " ", "\n", "    ", 
+        RowBox[{"UpdateInterval", " ", "->", " ", "1"}]}], "]"}]}], "]"}]}], 
+   ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"3f780387-40d7-49fb-86cd-7a485f48a707"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["5. Optional reduced-budget run", "Section",ExpressionUUID->"966beb92-24d7-4a23-95f3-28edd7a5d71b"],
+
+Cell["\<\
+Run all cases with a reduced budget and three observational bins. This is an \
+execution test, not a production-precision result.\
+\>", "Text",ExpressionUUID->"ed6bfa5e-193c-4092-8863-731f300c35ad"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"testResult", " ", "=", " ", 
+    RowBox[{"Monitor", "[", 
+     RowBox[{
+      RowBox[{"QSFIPBH`RunStandalone", "[", 
+       RowBox[{"Automatic", ",", " ", 
+        RowBox[{"Association", "[", 
+         RowBox[{
+          RowBox[{"\"\<test_mode\>\"", " ", "->", " ", "True"}], ",", " ", 
+          "\n", "     ", 
+          RowBox[{"\"\<generate_figures\>\"", " ", "->", " ", "False"}]}], 
+         "]"}]}], "]"}], ",", " ", 
+      RowBox[{"Dynamic", "[", 
+       RowBox[{
+        RowBox[{"QSFIPBH`RunStatusPanel", "[", "QSFIPBH`$RunState", "]"}], ",",
+         " ", "\n", "    ", 
+        RowBox[{"UpdateInterval", " ", "->", " ", "1"}]}], "]"}]}], "]"}]}], 
+   ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"7d8ee79c-db42-4e88-a70f-f05faa2cf896"],
+
+Cell[BoxData[
+ RowBox[{"QSFIPBH`RunStatusPanel", "[", "testResult", "]"}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"1107a84c-52d3-403e-a2c0-01ba268f73ba"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["6. Parameters", "Section",ExpressionUUID->"da30d794-3b72-4761-848e-3197ccc3ac5f"],
+
+Cell["Show the default calculation settings.", "Text",ExpressionUUID->"dc61583a-1675-49c0-b1cd-9ac00ac7b656"],
+
+Cell[BoxData[
+ RowBox[{"QSFIPBH`ProductionConfig", "[", "]"}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"68905e20-af15-4d0a-87c1-3d0164fb155f"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["7. Regression tests", "Section",ExpressionUUID->"2837f976-7fc8-4bde-a6dd-666b1b57b7c8"],
+
+Cell["Run the numerical and workflow tests.", "Text",ExpressionUUID->"b36accee-d9c0-4a31-b0b2-fe660c61f518"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"qsfiTestNotebookLoad", " ", "=", " ", 
+    RowBox[{"QSFILoadNotebookCode", "[", 
+     RowBox[{"FileNameJoin", "[", 
+      RowBox[{"{", 
+       RowBox[{"qsfiNotebookRoot", ",", " ", "\"\<Tests.nb\>\""}], "}"}], 
+      "]"}], "]"}]}], ";"}], " "}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"b5d57fe8-1e31-42c6-b599-7154bfd451f2"],
+
+Cell[BoxData[
+ RowBox[{"If", "[", 
+  RowBox[{
+   RowBox[{"FailureQ", "[", "qsfiTestNotebookLoad", "]"}], ",", " ", 
+   "qsfiTestNotebookLoad", ",", " ", "qsfiTestSummary"}], "]"}]], "Input",
+ InitializationCell->
+  False,ExpressionUUID->"f1af1604-7a06-48d7-9cdf-b8cba7aebc79"]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{1280, 900},
+WindowMargins->{{Automatic, 515}, {145, Automatic}},
+DefaultNewCellStyle->"Input",
+FrontEndVersion->"14.3 for Mac OS X ARM (64-bit) (July 8, 2025)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"c7da00ec-a2d2-424c-babf-e7e42ef950b4"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[576, 22, 99, 0, 96, "Title",ExpressionUUID->"2311fd10-a6fb-48c1-9004-69b2847e8d4f"],
+Cell[678, 24, 138, 3, 52, "Subtitle",ExpressionUUID->"f19e9e67-26bc-4ccd-acf2-a15bc67b1cba"],
+Cell[CellGroupData[{
+Cell[841, 31, 87, 0, 66, "Section",ExpressionUUID->"c24650db-17df-48c0-b8ac-53ac748bc023"],
+Cell[931, 33, 118, 0, 33, "Text",ExpressionUUID->"3d708023-a426-472e-bf56-e32b922aa551"],
+Cell[1052, 35, 205, 6, 45, "Input",ExpressionUUID->"43829ac7-51f7-4715-ad2c-6443416a658b",
+ InitializationCell->True],
+Cell[1260, 43, 3063, 74, 208, "Input",ExpressionUUID->"3b1850a8-1fc8-4945-8531-d7be8fa71b01",
+ InitializationCell->True],
+Cell[4326, 119, 659, 17, 65, "Input",ExpressionUUID->"31a58c00-8439-42f9-88e1-e1040cd0a6af",
+ InitializationCell->True],
+Cell[4988, 138, 218, 6, 45, "Input",ExpressionUUID->"18b5c8a3-2450-4384-ac6f-559828f3410c",
+ InitializationCell->True],
+Cell[5209, 146, 850, 21, 86, "Input",ExpressionUUID->"516bf715-21ec-4b54-823b-ea6289e2c0b0",
+ InitializationCell->True],
+Cell[6062, 169, 495, 13, 65, "Input",ExpressionUUID->"31a08944-6a5e-409d-aa13-6b739878e645",
+ InitializationCell->True]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[6594, 187, 101, 0, 66, "Section",ExpressionUUID->"d2d6ed3e-253e-4d57-99d7-c97950bebcb2"],
+Cell[6698, 189, 220, 3, 33, "Text",ExpressionUUID->"8b588282-e52a-4003-ac43-27151096adcb"],
+Cell[6921, 194, 286, 8, 29, "Input",ExpressionUUID->"2fb08ac0-ec98-4cd5-8de8-e72e6af306c1",
+ InitializationCell->False],
+Cell[7210, 204, 587, 16, 49, "Input",ExpressionUUID->"26be33f2-ba1f-47ab-846f-f561d4683b6b",
+ InitializationCell->False],
+Cell[7800, 222, 169, 3, 29, "Input",ExpressionUUID->"886f3141-ee64-481d-9dc7-443de96391b3",
+ InitializationCell->False]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[8006, 230, 95, 0, 66, "Section",ExpressionUUID->"c2f01e66-a318-4027-b799-4838c62ba039"],
+Cell[8104, 232, 122, 0, 33, "Text",ExpressionUUID->"06a0cbf3-f35b-4c6d-b9d9-ec91f70500d4"],
+Cell[8229, 234, 933, 23, 70, "Input",ExpressionUUID->"c09f13e2-df4a-4791-82e9-a13ea2a74e15",
+ InitializationCell->False],
+Cell[9165, 259, 941, 20, 90, "Input",ExpressionUUID->"525df799-76a8-4664-b093-b7a884a5563b",
+ InitializationCell->False]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[10143, 284, 102, 0, 66, "Section",ExpressionUUID->"15cba0fe-8414-4032-815c-3f45dfaa83ec"],
+Cell[10248, 286, 147, 2, 33, "Text",ExpressionUUID->"ad0406e7-ea09-4d57-86df-2e7f9acf91e6"],
+Cell[10398, 290, 196, 5, 29, "Input",ExpressionUUID->"6092467d-6889-411c-a3f3-44dd84074073",
+ InitializationCell->False],
+Cell[10597, 297, 744, 19, 70, "Input",ExpressionUUID->"3f780387-40d7-49fb-86cd-7a485f48a707",
+ InitializationCell->False]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[11378, 321, 104, 0, 66, "Section",ExpressionUUID->"966beb92-24d7-4a23-95f3-28edd7a5d71b"],
+Cell[11485, 323, 208, 3, 33, "Text",ExpressionUUID->"ed6bfa5e-193c-4092-8863-731f300c35ad"],
+Cell[11696, 328, 818, 21, 70, "Input",ExpressionUUID->"7d8ee79c-db42-4e88-a70f-f05faa2cf896",
+ InitializationCell->False],
+Cell[12517, 351, 170, 3, 29, "Input",ExpressionUUID->"1107a84c-52d3-403e-a2c0-01ba268f73ba",
+ InitializationCell->False]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[12724, 359, 87, 0, 66, "Section",ExpressionUUID->"da30d794-3b72-4761-848e-3197ccc3ac5f"],
+Cell[12814, 361, 109, 0, 33, "Text",ExpressionUUID->"dc61583a-1675-49c0-b1cd-9ac00ac7b656"],
+Cell[12926, 363, 158, 3, 29, "Input",ExpressionUUID->"68905e20-af15-4d0a-87c1-3d0164fb155f",
+ InitializationCell->False]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[13121, 371, 93, 0, 66, "Section",ExpressionUUID->"2837f976-7fc8-4bde-a6dd-666b1b57b7c8"],
+Cell[13217, 373, 108, 0, 33, "Text",ExpressionUUID->"b36accee-d9c0-4a31-b0b2-fe660c61f518"],
+Cell[13328, 375, 389, 10, 29, "Input",ExpressionUUID->"b5d57fe8-1e31-42c6-b599-7154bfd451f2",
+ InitializationCell->False],
+Cell[13720, 387, 276, 6, 29, "Input",ExpressionUUID->"f1af1604-7a06-48d7-9cdf-b8cba7aebc79",
+ InitializationCell->False]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)
+

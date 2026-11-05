@@ -1,0 +1,338 @@
+Notebook[{Cell["QSFI\[Dash]PBH | Figures", "Title"], 
+  Cell["Native Mathematica module loaded by QSFIPBH.nb.", "Text"], 
+  Cell["Definitions", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BeginPackage[\"QSFIPBH`\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DiagramFigure::usage = \"DiagramFigure[] draws the \
+leading QSFI interaction diagrams.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContributionFigure::usage = \
+\"ContributionFigure[extrema] draws S3 and S4/8 at the r_s=3 extrema.\"; "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TailFigure::usage = \"TailFigure[rows,extrema] draws \
+positive-tail shapes and absolute abundances.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ObservationalFigure::usage = \n  \
+\"ObservationalFigure[pbh,cmb] draws the conditional abundance/CMB \
+comparison.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CouplingGridFigure::usage = \n  \
+\"CouplingGridFigure[rows,extrema,quantity,config] draws the sound-speed/mass \
+panel grid.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExportFigure::usage = \"ExportFigure[figure,stem] \
+writes native PDF, SVG and PNG graphics.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RenderProductionFigures::usage = \n  \
+\"RenderProductionFigures[rows,directory,config] draws the three production \
+figures.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReproduceReference::usage = \n  \
+\"ReproduceReference[directory] rebuilds six figures and diagnostics from \
+archived inputs.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Begin[\"`Private`\"]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$Navy = RGBColor[0.161, 0.31, 0.451]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$Burgundy = RGBColor[0.588, 0.325, 0.365]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$Gold = RGBColor[0.608, 0.49, 0.282]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$Ink = GrayLevel[0.15]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$FigureStyle = {FontFamily -> \"Times\", FontSize -> \
+12, FontColor -> $Ink}; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"figureColor[(value_)?NumericQ, colors_, range_] := \n \
+ Blend[colors, Clip[Rescale[value, range], {0, 1}]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"figureLegendColor[(value_)?NumericQ, colors_] := Blend[colors, value]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"figureColorBar[scheme_String, range_List, \
+label_String] := \n  Graphics[{Table[{ColorData[scheme][index/127.], \
+Rectangle[{0, index/128.}, \n       {0.14, (index + 1)/128.}]}, {index, 0, \
+127}], $Ink, AbsoluteThickness[0.7], \n    Table[{Line[{{0.14, t}, {0.19, \
+t}}], \n      Text[Style[NumberForm[range[[1]] + t*(range[[2]] - range[[1]]), \
+{5, 3}], 10], {0.23, t}, \n       {-1, 0}]}, {t, {0., 0.25, 0.5, 0.75, 1.}}], \
+Text[Style[label, 10], {0.38, 1.13}]}, \n   Frame -> False, Axes -> False, \
+PlotRange -> {{-0.04, 0.85}, {-0.03, 1.25}}, \n   PlotRangePadding -> None, \
+ImageSize -> {105, 260}, AspectRatio -> 2.5, ImagePadding -> 2, \n   \
+BaseStyle -> {FontFamily -> \"Times\", FontSize -> 10}]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"figureOptions[] := {Frame -> True, Axes -> False, \
+BaseStyle -> $FigureStyle, \n   FrameStyle -> Directive[$Ink, \
+AbsoluteThickness[0.8]], ImagePadding -> {{62, 16}, {47, 34}}, \n   ImageSize \
+-> 480}; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExportFigure[figure_, stem_String] := \
+Catch[Module[{paths, path, result}, \n    \
+EnsureDirectory[DirectoryName[stem]]; paths = Table[path = StringJoin[stem, \
+\".\", extension]; \n        result = If[extension == \"png\", Export[path, \
+figure, \"PNG\", ImageResolution -> 240], \n          Export[path, figure, \
+ToUpperCase[extension]]]; \n        require[StringQ[result] && \
+FileExistsQ[path] && FileByteCount[path] > 0, \"FigureExport\", \n         \
+StringJoin[\"A native figure export failed: \", path]]; path, \n       \
+{extension, {\"pdf\", \"svg\", \"png\"}}]; paths]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DiagramFigure[] := Module[{panel, line, leg, vertex, \
+panels}, \n   line[a_, b_, heavy_:False] := {Directive[$Ink, \
+AbsoluteThickness[1.4], \n       If[heavy, Dashing[{0.025, 0.018}], \
+Dashing[{}]]], Line[{a, b}]}; \n    vertex[v_, label_, offset_] := \
+{PointSize[0.014], Point[v], Text[Style[label, 15], \n       v + offset]}; \
+leg[v_, end_] := Module[{t = v + 0.56*(end - v), d = Normalize[end - v]}, \n  \
+    {line[v, t, True], line[t, end], Text[Style[\"\[Times]\", 18], t], \n     \
+  Text[Style[Subscript[\"\[Delta]\", \"\[Phi]\"], 14], end + 0.08*d]}]; \n    \
+panel[type_] := Module[{v = {0.5, 0.47}, a = {0.32, 0.47}, b = {0.68, 0.47}, \
+content, title, \n       order}, Switch[type, 1, content = {(leg[v, #1] & ) \
+/@ {{0.1, 0.85}, {0.9, 0.85}, \n             {0.5, 0.03}}, vertex[v, \
+Subscript[\"\[Lambda]\", 3], {0.14, -0.02}]}; title = \"(a) Bispectrum\"; \n  \
+       order = \"(\[Lambda]\:2082/H)\263 (\[Lambda]\:2083/H)\", 2, \n        \
+content = {(leg[v, #1] & ) /@ {{0.1, 0.85}, {0.9, 0.85}, {0.1, 0.05}, {0.9, \
+0.05}}, \n           vertex[v, Subscript[\"\[Lambda]\", 4], {0.14, 0.}]}; \
+title = \"(b) Contact interaction\"; \n         order = \
+\"(\[Lambda]\:2082/H)\:2074 \[Lambda]\:2084\", 3, \n        content = \
+{{(leg[a, #1] & ) /@ {{0.05, 0.85}, {0.05, 0.05}}}, \n           {(leg[b, #1] \
+& ) /@ {{0.95, 0.85}, {0.95, 0.05}}}, line[a, b, True], \n           \
+Text[Style[Subscript[\"\[Delta]\", \"\[Chi]\"], 14], {0.5, 0.59}], vertex[a, \
+Subscript[\"\[Lambda]\", 3], \n            {0., -0.15}], vertex[b, \
+Subscript[\"\[Lambda]\", 3], {0., -0.15}]}; \n         title = \"(c) Scalar \
+exchange\"; order = \"(\[Lambda]\:2082/H)\:2074 (\[Lambda]\:2083/H)\262\"]; \
+\n       Graphics[{content, Text[Style[title, 14], {0.5, 1.04}], \
+Text[Style[order, 15], \n          {0.5, -0.13}]}, PlotRange -> {{-0.04, \
+1.04}, {-0.23, 1.14}}, ImageSize -> 340, \n        BaseStyle -> $FigureStyle, \
+AspectRatio -> 0.95]]; panels = panel /@ {1, 2, 3}; \n    \
+Labeled[GraphicsRow[panels, Spacings -> 12, ImageSize -> 1080], \n     \
+Style[\"Solid: \[Delta]\[Phi]     Dashed: \[Delta]\[Chi]     \[Times]: \
+transfer vertex \[Lambda]\:2082\", 13, \n      FontFamily -> \"Times\"], \
+Bottom]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContributionFigure[extrema_List] := Module[{selected, \
+s3, s4, n, primitives, ymax, ymin}, \n   selected = Select[extrema, \
+Abs[#1[\"r_s\"] - 3.] < 10^(-10) & ]; \n    If[selected === {}, selected = \
+Select[extrema, #1[\"r_s\"] == Last[extrema][\"r_s\"] & ]]; \n    s3 = \
+Lookup[selected, \"S3\"]; s4 = Lookup[selected, \"S4\"]/8.; n = \
+Length[selected]; \n    ymax = Max[1., Max[Join[s3, s4]]]*1.16; ymin = \
+Min[-0.12, Min[Join[s3, s4]]*1.2]; \n    primitives = Table[{{$Navy, \
+Rectangle[{j - 0.3, 0}, {j - 0.02, s3[[j]]}]}, \n       {$Burgundy, \
+Rectangle[{j + 0.02, 0}, {j + 0.3, s4[[j]]}]}}, {j, n}]; \n    \
+Legended[Graphics[{primitives, GrayLevel[0.45], Line[{{0.5, 0}, {n + 0.5, \
+0}}]}, Frame -> True, \n      Axes -> False, BaseStyle -> $FigureStyle, \
+FrameTicks -> {{Automatic, None}, \n        {Table[{j, \
+selected[[j]][\"nu_tilde\"]}, {j, n}], None}}, \n      FrameLabel -> {{None, \
+None}, {\"\[Nu]\:0303\", None}}, PlotRange -> {{0.5, n + 0.5}, {ymin, ymax}}, \
+\n      AspectRatio -> 0.58, ImageSize -> 640, ImagePadding -> {{48, 15}, \
+{45, 15}}], \n     Placed[SwatchLegend[{$Navy, $Burgundy}, {\"S\:2083\", \
+\"S\:2084/8\"}, LegendLayout -> \"Row\"], Above]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"tailCases[rows_, extrema_] := Module[{area = \
+AreaFromPeakHeight[0.01]}, \n   Table[Module[{row, opt, point}, \n     row = \
+SelectFirst[rows, Abs[#1[\"r_s\"] - 3.] < 10^(-10) && Abs[#1[\"nu_tilde\"] - \
+nu] < \n           10^(-10) & ]; opt = SelectFirst[extrema, Abs[#1[\"r_s\"] - \
+3.] < 10^(-10) && \n          Abs[#1[\"nu_tilde\"] - nu] < 10^(-10) & ]; \
+point = CumulantsFromCoefficients[row, \n        opt[\"lambda3_over_H\"], \
+opt[\"lambda4\"], area]; Join[Association[\"nu_tilde\" -> nu, \n        \
+\"power_ratio\" -> opt[\"peak_ratio\"]], point]], {nu, {0.1, 0.3, 0.5}}]]; "}]\
+], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TailFigure[rows_List, extrema_List] := Module[{cases, \
+c2, area, variance, delta, peak, styles, \n    density, beta, left, right, \
+pg, pn}, cases = tailCases[rows, extrema]; \n    c2 = \
+DensityVarianceResponse[]; area = AreaFromPeakHeight[0.01]; variance = \
+area*c2; \n    density[d_, s3_, s4_] := (-Log[2.*Pi*variance]/2 - \
+d^2/(2*variance) + \n       (d^3*(s3/6) + d^4*(s4/24))/variance)/Log[10.]; \
+beta[(p_)?NumericQ, s3_, s4_] := \n     LogBetaNG[AreaFromPeakHeight[p], s3, \
+s4, c2]/Log[10.]; \n    styles = {Directive[$Ink, Thick], Directive[$Navy, \
+Thick], Directive[$Burgundy, Thick, Dashed], \n      Directive[$Gold, Thick, \
+DotDashed]}; \n    pg = PeakHeightFromArea[GaussianTargetArea[10.^(-15), \
+c2]]; \n    pn = pg*First[cases][\"power_ratio\"]; \n    left = \
+Plot[Evaluate[Prepend[(density[delta, #1[\"S3\"], #1[\"S4\"]] & ) /@ cases, \
+\n        density[delta, 0., 0.]]], {delta, 0.15, 0.55}, Evaluate[Sequence @@ \
+figureOptions[]], \n      PlotStyle -> styles, PlotRange -> {{0.15, 0.55}, \
+{-85, 0}}, \n      FrameLabel -> {\"\[Delta]R\", \"log\:2081\:2080 \
+P_log(\[Delta]R)\"}, PlotLabel -> \"(a) Positive density tail\", \n      \
+Epilog -> {Directive[Gray, Dashed], Line[{{0.5, -85}, {0.5, 0}}]}]; \n    \
+right = LogLinearPlot[Evaluate[Prepend[(beta[peak, #1[\"S3\"], #1[\"S4\"]] & \
+) /@ cases, \n        beta[peak, 0., 0.]]], {peak, 0.008, 0.08}, \
+Evaluate[Sequence @@ figureOptions[]], \n      PlotStyle -> styles, PlotRange \
+-> {{0.008, 0.08}, {-95, 12}}, \n      FrameLabel -> {\"Power-spectrum peak \
+P\[Zeta](k*)\", \"log\:2081\:2080 \[Beta]\"}, \n      PlotLabel -> \"(b) \
+Absolute PBH abundance\", \n      Epilog -> {Gray, Dotted, Line[{{Log[0.008], \
+-15}, {Log[0.08], -15}}], $Navy, \n        PointSize[0.015], Point[{{Log[pn], \
+-15}, {Log[pg], -15}}], \n        Text[Style[Row[{\"P_NG/P_G = \", \
+NumberForm[First[cases][\"power_ratio\"], {4, 3}]}], 12, \n          $Navy], \
+{Log[Sqrt[pn*pg]], 4}]}]; Legended[GraphicsRow[{left, right}, ImageSize -> \
+1120, \n      Spacings -> 12], Placed[LineLegend[styles, {\"Gaussian\", \
+\"\[Nu]\:0303 = 0.1\", \"\[Nu]\:0303 = 0.3\", \n        \"\[Nu]\:0303 = \
+0.5\"}, LegendLayout -> \"Row\"], Above]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ObservationalFigure[p_Association, cmb_Association] \
+:= Module[{logf, x, y, panel, plots}, \n   logf = (p[\"log_beta_gaussian\"] + \
+p[\"nu_th2\"]*((p[\"q3\"]*x + p[\"q4_contact\"]*y + \n          \
+p[\"q4_exchange\"]*x^2)/12) - Log[p[\"beta_per_f\"]])/Log[10.]; \n    \
+panel[lo_, hi_, zoom_] := Module[{background, excluded, contours, extra}, \n  \
+    background = Graphics[If[zoom, {RGBColor[0.87, 0.91, 0.95], \
+Rectangle[{cmb[\"low95\"], -1}, \n            {cmb[\"high95\"], 1}]}, {}]]; \
+excluded = RegionPlot[Evaluate[logf > -2], {x, lo, hi}, \n         {y, -1, \
+1}, PlotStyle -> Directive[$Burgundy, Opacity[0.22]], BoundaryStyle -> None, \
+\n         PlotPoints -> 51, MaxRecursion -> 1]; contours = \
+ContourPlot[Evaluate[logf], {x, lo, hi}, \n         {y, -1, 1}, Contours -> \
+If[zoom, {-2}, {-6, -4, -2}], ContourShading -> False, \n         \
+ContourStyle -> If[zoom, {Directive[$Burgundy, Thick]}, {Directive[Gray, \
+Dotted], \n            Directive[$Navy, Dashed], Directive[$Burgundy, \
+Thick]}], \n         ContourLabels -> If[zoom, None, Automatic], PlotPoints \
+-> 51, MaxRecursion -> 1]; \n       extra = If[zoom, {Directive[$Navy, \
+Dashed], Line[{{cmb[\"low95\"], -1}, {cmb[\"low95\"], 1}}], \n          \
+Line[{{cmb[\"high95\"], -1}, {cmb[\"high95\"], 1}}], Text[Style[\"Jointly \
+allowed\", 13, \n            $Navy], {cmb[\"mean\"], 0.55}], Text[Style[\"PBH \
+excluded\", 13, $Burgundy], \n           {-0.022, -0.87}]}, {$Ink, \
+PointSize[0.012], Point[{0, 0}], Text[Style[\"Gaussian\", 12], \n           \
+{0.65, 0.12}], Text[Style[\"PBH overproduction\", 12, $Burgundy], {-0.28, \
+-0.73}]}]; \n       Show[background, excluded, contours, Evaluate[Sequence @@ \
+figureOptions[]], \n        PlotRange -> {{lo, hi}, {-1, 1}}, AspectRatio -> \
+0.72, FrameLabel -> {\"\[Lambda]\:2083/H\", \"\[Lambda]\:2084\"}, \n        \
+Epilog -> extra, PlotLabel -> If[zoom, \"(b) Conditional CMB\[Dash]PBH \
+constraints\", \n          \"(a) PBH dark matter fraction f_PBH\"]]]; \n    \
+plots = {panel[-1., 1., False], panel[-0.065, 0.045, True]}; \n    \
+Legended[GraphicsRow[plots, ImageSize -> 1120, Spacings -> 14], \n     \
+Placed[SwatchLegend[{RGBColor[0.87, 0.91, 0.95], RGBColor[0.91, 0.79, 0.81]}, \
+\n       {\"Planck PR4: conditional 95% interval\", \"OGLE: f_PBH > \
+10\:207b\262\"}, LegendLayout -> \"Row\"], \n      Below]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CouplingGridFigure[rows_List, extrema_List, \
+quantity_String, config_:Automatic] := \n  Catch[Module[{c = If[config === \
+Automatic, ProductionConfig[], config], ratios, nus, area, c2, x, \n     y, \
+panels, selected, rowExtrema, rangeValues, range, q, expression, palette, \
+scheme, color, \n     opt, row, legend}, require[MemberQ[{\"peak_ratio\", \
+\"log10_beta_ratio\"}, quantity], \n      \"FigureQuantity\", \"Unsupported \
+coupling-grid quantity.\"]; \n     ratios = DeleteDuplicates[Lookup[rows, \
+\"r_s\"]]; \n     nus = DeleteDuplicates[Lookup[rows, \"nu_tilde\"]]; \n     \
+area = AreaFromPeakHeight[c[\"reference_peak_height\"], \
+c[\"lognormal_delta\"]]; \n     c2 = \
+DensityVarianceResponse[c[\"lognormal_delta\"], c[\"k_peak_r\"]]; \n     \
+palette = If[quantity == \"peak_ratio\", {RGBColor[0.22, 0.31, 0.42], White, \
+\n        RGBColor[0.59, 0.32, 0.36]}, {RGBColor[0.95, 0.94, 0.91], \
+RGBColor[0.68, 0.62, 0.56], \n        $Navy}]; scheme = If[quantity == \
+\"peak_ratio\", \"RedBlueTones\", \"DeepSeaColors\"]; \n     panels = \
+Table[selected = Select[rows, Abs[#1[\"r_s\"] - ratio] < 10^(-10) & ]; \n     \
+   rowExtrema = Select[extrema, Abs[#1[\"r_s\"] - ratio] < 10^(-10) & ]; \n   \
+     rangeValues = Flatten[Table[Module[{pt = CumulantsFromCoefficients[r, \
+xx, yy, area, c[\n                \"lambda2_over_H\"]], qv}, qv = pt[\"S3\"] \
++ c[\"delta_c\"]*(pt[\"S4\"]/4); \n             If[qv > Min[c[\"qng_max\"], \
+3/c[\"delta_c\"]], Nothing, If[quantity == \"peak_ratio\", \n               \
+RequiredPowerRatio[qv, c[\"target_beta\"], c[\"gamma_collapse\"], \
+c[\"delta_c\"]], \n               \
+c[\"delta_c\"]^3*(qv/(6*area*c2*Log[10.]))]]], {r, selected}, \n           \
+{xx, Subdivide[c[\"lambda3_min\"], c[\"lambda3_max\"], 20]}, \n           \
+{yy, {c[\"lambda4_min\"], c[\"lambda4_max\"]}}]]; require[rangeValues =!= {} \
+&& \n          VectorQ[rangeValues, NumericQ], \"FigureDomain\", \n         \
+\"No valid numerical coupling values available for the color scale.\"]; \n    \
+    range = {Min[Join[rangeValues, Lookup[rowExtrema, quantity]]], \
+Max[rangeValues]}; \n        If[range[[1]] == range[[2]], range += {-1., \
+1.}]; \n        color = With[{vrange = range, colorScheme = scheme}, \
+Function[value, \n           ColorData[colorScheme][Clip[Rescale[value, \
+vrange], {0, 1}]]]]; \n        Append[Table[row = SelectFirst[selected, \
+Abs[#1[\"nu_tilde\"] - nu] < 10^(-10) & ]; \n           \
+require[AssociationQ[row], \"FigureInput\", \n            \"The coupling grid \
+is missing a sound-speed/mass panel.\"]; \n           opt = \
+SelectFirst[rowExtrema, Abs[#1[\"nu_tilde\"] - nu] < 10^(-10) & ]; \n         \
+  q = c[\"lambda2_over_H\"]^3*row[\"C3_hat\"]*(x/Sqrt[area]) + \
+c[\"delta_c\"]*\n              \
+c[\"lambda2_over_H\"]^4*((row[\"C4_contact_hat\"]*y + \
+row[\"C4_exchange_hat\"]*x^2)/(4*\n                area)); expression = \
+If[quantity == \"peak_ratio\", With[{a = 1 - c[\"delta_c\"]*(q/3), \n         \
+      arg = c[\"gamma_collapse\"]^2/(2.*Pi*c[\"target_beta\"]^2)}, \
+Piecewise[{\n                {ProductLog[arg]/arg, a == 0}}, \
+ProductLog[arg]*(a/ProductLog[a*arg])]], \n             \
+c[\"delta_c\"]^3*(q/(6*area*c2*Log[10.]))]; legend = None; \n           \
+DensityPlot[Evaluate[expression], {x, c[\"lambda3_min\"], \
+c[\"lambda3_max\"]}, \n            {y, c[\"lambda4_min\"], \
+c[\"lambda4_max\"]}, ColorFunction -> color, \n            \
+ColorFunctionScaling -> False, PlotRange -> range, PlotPoints -> 31, \
+MaxRecursion -> 1, \n            RegionFunction -> With[{qexpr = q, limit = \
+Min[c[\"qng_max\"], 3/c[\"delta_c\"]]}, \n              Function[{xx, yy, \
+vv}, Evaluate[(qexpr /. {x -> xx, y -> yy}) <= limit]]], \n            Frame \
+-> True, Axes -> False, BaseStyle -> {FontFamily -> \"Times\", FontSize -> \
+11}, \n            FrameLabel -> {\"\[Lambda]\:2083/H\", If[nu == First[nus], \
+Row[{\"\[Lambda]\:2084   (r\:209b = \", ratio, \")\"}], \n               \
+None]}, PlotLabel -> Row[{\"nu_tilde = \", nu}], AspectRatio -> 0.8, \
+ImageSize -> 290, \n            ImagePadding -> {{48, 8}, {38, 26}}, \
+PlotLegends -> legend, \n            Epilog -> {$Ink, AbsolutePointSize[4], \
+Point[{opt[\"lambda3_over_H\"], \n                opt[\"lambda4\"]}]}], {nu, \
+nus}], figureColorBar[scheme, range, \n          If[quantity == \
+\"peak_ratio\", \"P_NG/P_G\", \"log\:2081\:2080(\[Beta]_NG/\[Beta]_G)\"]]], \
+{ratio, ratios}]; \n     GraphicsGrid[panels, Spacings -> {0.25, 0.45}, \
+ImageSize -> 1320]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RenderProductionFigures[rows_List, directory_String, \
+config_:Automatic] := \n  Catch[Module[{c, extrema, outputs}, c = If[config \
+=== Automatic, ProductionConfig[], config]; \n     extrema = \
+ComputeExtrema[rows, c]; EnsureDirectory[directory]; \n     outputs = \
+Join[ExportFigure[ContributionFigure[extrema], \n        \
+FileNameJoin[{directory, \"r3_relative_contribution_bars\"}]], \n       \
+ExportFigure[CouplingGridFigure[rows, extrema, \"peak_ratio\", c], \n        \
+FileNameJoin[{directory, \"sound_speed_comparison_full\"}]], \n       \
+ExportFigure[CouplingGridFigure[rows, extrema, \"log10_beta_ratio\", c], \n   \
+     FileNameJoin[{directory, \"sound_speed_log10_beta_ratio_full\"}]]]; \
+outputs]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReproduceReference[directory_:Automatic] := \n  \
+Catch[Module[{out, c, rows, extrema, pbh, cmb, figures, manifest, result, \
+paths = {}, source, \n     cases, deltaAxis, peakAxis}, \n    out = \
+If[directory === Automatic, FileNameJoin[{$ProjectRoot, \"reference_run\"}], \
+\n       ExpandFileName[directory]]; EnsureDirectory[out]; \n     \
+EnsureDirectory[FileNameJoin[{out, \"data\"}]]; \
+EnsureDirectory[FileNameJoin[{out, \"figures\"}]]; \n     manifest = \
+Association[\"status\" -> \"running\", \"method\" -> \
+\"archived_coefficients_and_cmb_fit\", \n       \"cold_qmc_run\" -> False, \
+\"runtime\" -> $Version, \"native_wolfram_language\" -> True, \n       \
+\"input_sha256\" -> Association[Table[FileNameTake[file] -> IntegerString[\n  \
+          FileHash[file, \"SHA256\"], 16, 64], {file, Select[FileNames[\"*\", \
+\n             FileNameJoin[{$ProjectRoot, \"reference_outputs\", \
+\"inputs\"}]], \n            FileType[#1] === File & ]}]]]; \n     \
+WriteJSON[FileNameJoin[{out, \"reference_run_manifest.json\"}], manifest]; \n \
+    result = Catch[c = ProductionConfig[]; rows = ReadArchivedCoefficients[]; \
+\n        require[ListQ[rows], \"InputData\", \"Archived coefficients could \
+not be read.\"]; \n        extrema = ComputeExtrema[rows, c]; pbh = \
+ComputePBHConstraints[rows]; \n        cmb = \
+Import[FileNameJoin[{$ProjectRoot, \"reference_outputs\", \"inputs\", \n      \
+      \"cmb_fit_fine.json\"}], \"RawJSON\"]; WriteAssociationCSV[\n         \
+FileNameJoin[{out, \"data\", \"corrected_coefficients.csv\"}], rows]; \n      \
+  WriteAssociationCSV[FileNameJoin[{out, \"data\", \
+\"corrected_extrema.csv\"}], extrema]; \n        WriteJSON[FileNameJoin[{out, \
+\"data\", \"pbh_constraints.json\"}], pbh]; \n        \
+WriteJSON[FileNameJoin[{out, \"data\", \"cmb_fit_used.json\"}], cmb]; \n      \
+  cases = tailCases[rows, extrema]; deltaAxis = Subdivide[0.15, 0.55, 800]; \
+\n        peakAxis = Exp[Subdivide[Log[0.008], Log[0.08], 800]]; \n        \
+source = Association[\"coefficients\" -> rows, \"extrema\" -> extrema, \
+\"pbh\" -> pbh, \n          \"cmb_fit\" -> cmb, \"tail_cases\" -> cases, \
+\"density_axis\" -> deltaAxis, \n          \"peak_axis\" -> peakAxis, \
+\"configuration\" -> c, \"rendering\" -> \n           \"Native adaptive \
+Wolfram plots; numerical extrema use 2001-point axes.\"]; \n        \
+Export[FileNameJoin[{out, \"data\", \"figure_sources.wxf\"}], source, \
+\"WXF\"]; \n        figures = {\"qsfi_diagrams\" -> (DiagramFigure[] & ), \
+\"r3_relative_contribution_bars\" -> \n           \
+(ContributionFigure[extrema] & ), \"tail_and_abundance\" -> \n           \
+(TailFigure[rows, extrema] & ), \"observational_constraints\" -> \n           \
+(ObservationalFigure[pbh, cmb] & ), \"sound_speed_comparison_full\" -> \n     \
+      (CouplingGridFigure[rows, extrema, \"peak_ratio\", c] & ), \n          \
+\"sound_speed_log10_beta_ratio_full\" -> (CouplingGridFigure[rows, extrema, \
+\n             \"log10_beta_ratio\", c] & )}; Do[Print[\"[native figure \", \
+index, \"/6] \", \n           First[figures[[index]]]]; paths = Join[paths, \
+ExportFigure[Last[figures[[index]]][], \n             FileNameJoin[{out, \
+\"figures\", First[figures[[index]]]}]]], {index, Length[figures]}]; \n       \
+ require[Length[paths] == 18, \"FigureContract\", \n         \"Expected \
+eighteen reference figure files.\"]; Association[\"output_directory\" -> out, \
+\n         \"figures\" -> paths, \"extrema\" -> extrema]]; \
+If[FailureQ[result], \n      manifest = Join[manifest, Association[\"status\" \
+-> \"failed\", \n         \"error\" -> ToString[result, InputForm]]], \n      \
+manifest = Join[manifest, Association[\"status\" -> \"completed\", \
+\"figure_files\" -> \n          Length[paths], \"coefficient_rows\" -> \
+Length[rows]]]]; \n     WriteJSON[FileNameJoin[{out, \
+\"reference_run_manifest.json\"}], manifest]; result]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"End[]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"EndPackage[]; "}]], 
+   "Input", InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]

@@ -1,0 +1,432 @@
+Notebook[{Cell["QSFI\[Dash]PBH | Propagators", "Title"], 
+  Cell["Native Mathematica module loaded by QSFIPBH.nb.", "Text"], 
+  Cell["Definitions", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BeginPackage[\"QSFIPBH`\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"GeneralizedCNu::usage = \
+\"GeneralizedCNu[nu,r,epsilon:1.e-8,dps:50] evaluates the lower-half-plane \
+\\\nbranch of the mixing constant.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildWickContour::usage = \n  \
+\"BuildWickContour[settings] constructs conjugate half-way shifted Wick \
+contours.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildMixedGrid::usage = \n  \
+\"BuildMixedGrid[nuTilde,settings] constructs the mixed grid and its \
+unit-ratio propagator.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MixedPropagator::usage = \n  \
+\"MixedPropagator[grid,ratio:1.] evaluates the stable reverse-tail mixed \
+propagator.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildRatioBundle::usage = \n  \
+\"BuildRatioBundle[grid,minimumRatio,nodeCount] samples logarithmic momentum \
+ratios.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RatioEvaluate::usage = \
+\"RatioEvaluate[bundle,key,ratio] interpolates a complex row in log ratio; \
+\\\nreturns Failure outside its domain.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumShape::usage = \
+\"BispectrumShape[bundle,k1,k2,k3] returns the complete power-stripped \
+\\\nbispectrum per lambda2^3 lambda3.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContactShape::usage = \
+\"ContactShape[bundle,{k1,k2,k3,k4}] returns the complete power-stripped \
+\\\ncontact shape per lambda2^4 lambda4.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExchangeShape::usage = \
+\"ExchangeShape[bundle,vectors4x3] returns all three scalar-exchange channels \
+\\\nper lambda2^4 lambda3^2.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FourMomentumVectors::usage = \n  \
+\"FourMomentumVectors[k1,k2,k3,mu12,mu13,phi3] constructs four closed \
+momentum vectors.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContourTrapezoid::usage = \n  \
+\"ContourTrapezoid[values,z] integrates on a complex contour using \
+trapezoids.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CumulativeTrapezoid::usage = \n  \
+\"CumulativeTrapezoid[values,z] returns contour prefixes with initial \
+zero.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReverseCumulativeTrapezoid::usage = \
+\"ReverseCumulativeTrapezoid[values,z] accumulates tails \\\ndirectly, \
+avoiding total-minus-prefix cancellation.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SqueezedCoefficients::usage = \n  \
+\"SqueezedCoefficients[grid] returns {s1,s2,sPlus,sMinus} in the printed \
+sine-cosine convention.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TriangularCoefficients::usage = \
+\"TriangularCoefficients[grid,lambda3:1.,lambda4:Pi/4,hardFraction:1\\\n/3] \
+returns {t1,t2,tPlus,tMinus}.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CollapsedCoefficients::usage = \n  \
+\"CollapsedCoefficients[grid,k1OverK3:1.] returns {c1,c2,cPlus,cMinus}.\"; "}]\
+], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockBispectrumKernel::usage = \n  \
+\"ClockBispectrumKernel[x,nuTilde,s1,s2] is the article Eq.(3.13) clock \
+kernel.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockTriangleKernel::usage = \n  \
+\"ClockTriangleKernel[x,nuTilde,t1,t2] is the article Eq.(3.26) clock \
+kernel.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockCollapsedKernel::usage = \n  \
+\"ClockCollapsedKernel[x,nuTilde,c1,c2] is the article Eq.(3.33) clock \
+kernel.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Begin[\"`Private`\"]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propFiniteQ[x_] := NumericQ[x] && FreeQ[N[x], \
+Indeterminate | ComplexInfinity | \n     DirectedInfinity[_]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"propRealQ[x_] := propFiniteQ[x] && TrueQ[Im[N[x]] == 0]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"propPositiveQ[x_] := propRealQ[x] && TrueQ[x > 0]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propFailure[tag_, message_, extra_:Association[]] := \
+\n  Failure[tag, Join[Association[\"MessageTemplate\" -> message], extra]]; "}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"propHash[x_] := IntegerString[Hash[x, \"SHA256\"], 16, 64]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"propFirstFailure[x_] := FirstCase[x, f_Failure :> f, None, Infinity]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propNumericResult[x_, name_] := If[propFiniteQ[x], \
+N[x], propFailure[\"NonFinite\", \n    StringJoin[name, \" did not evaluate \
+to a finite number.\"]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propVectorQ[x_] := VectorQ[x, propFiniteQ]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propContourValidQ[f_, z_] := ListQ[f] && ListQ[z] && \
+Length[f] == Length[z] && propVectorQ[f] && \n   propVectorQ[z]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {
+      "propIncrements[f_, z_] := (Most[f] + Rest[f])*(Differences[z]/2); "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContourTrapezoid[f_List, z_List] := If[ \
+!propContourValidQ[f, z], \n   propFailure[\"QuadratureShape\", \"Values and \
+contour must be finite vectors of equal length.\"], \n   If[Length[f] < 2, \
+0., Total[propIncrements[f, z]]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CumulativeTrapezoid[f_List, z_List] := If[ \
+!propContourValidQ[f, z], \n   propFailure[\"QuadratureShape\", \"Values and \
+contour must be finite vectors of equal length.\"], \n   If[f === {}, {}, \
+Prepend[Accumulate[propIncrements[f, z]], 0.]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReverseCumulativeTrapezoid[f_List, z_List] := If[ \
+!propContourValidQ[f, z], \n   propFailure[\"QuadratureShape\", \"Values and \
+contour must be finite vectors of equal length.\"], \n   If[f === {}, {}, \
+Append[Reverse[Accumulate[Reverse[propIncrements[f, z]]]], 0.]]]; "}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"GeneralizedCNu[nu_, ratio_, epsilon_:1.*^-8, dps_:50] \
+:= Module[{r, n, branch, value}, \n   If[ !propFiniteQ[nu] ||  \
+!propPositiveQ[ratio] ||  !propRealQ[epsilon] || \n       !TrueQ[0 <= epsilon \
+<= 0.001] ||  !IntegerQ[dps] || dps < 15, \n     \
+Return[propFailure[\"SoundSpeed\", \n       \"Require finite nu, positive \
+sound-speed ratio, 0 <= epsilon <= .001 and integer dps >= 15.\"]\\\n]]; n = \
+SetPrecision[nu, dps]; r = SetPrecision[ratio, dps] - I*SetPrecision[epsilon, \
+dps]; \n    If[TrueQ[ratio == 1] && TrueQ[epsilon == 0], \n     \
+Return[propNumericResult[N[Sqrt[2*Pi]/Cos[Pi*n], dps], \"Cnu\"]]]; \n    \
+branch[a_] := 2^a*(r^(a - 1/2)/Pi)*Gamma[1/2 - \
+a]*Gamma[a]*Hypergeometric2F1[1/4 - a/2, \n       3/4 - a/2, 1 - a, 1/r^2]; \
+value = Quiet[Check[N[branch[n] + branch[-n], dps], $Failed]]; \n    \
+propNumericResult[value, \"Cnu\"]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propDefaults[] := Association[\"wick_pivot\" -> 4., \
+\"wick_depth\" -> 16., \"tail_depth\" -> 18., \n   \"real_step\" -> 0.025, \
+\"vertical_step\" -> 0.025, \"xmin\" -> 1.*^-6, \"nlog\" -> 500, \"dps\" -> \
+50, \n   \"c_phi\" -> 1., \"c_sigma\" -> 1., \"i_epsilon\" -> 0.]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propSettings[s_Association] := Module[{cfg}, \n   cfg \
+= If[Length[DownValues[ProductionConfig]] > 0, ProductionConfig[], \
+Association[]]; \n    If[ !AssociationQ[cfg], cfg = Association[]]; \
+Join[propDefaults[], cfg, s]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildWickContour[settings_Association] := Module[{s = \
+propSettings[settings], xmin, pivot, depth, \n    nlog, dx, dy, logend, \
+logarithmic, real, vertical, z}, \n   {xmin, pivot, depth, nlog, dx, dy} = \
+Lookup[s, {\"xmin\", \"wick_pivot\", \"wick_depth\", \"nlog\", \n       \
+\"real_step\", \"vertical_step\"}]; If[ !And @@ propPositiveQ /@ {xmin, \
+pivot, depth, dx, dy} || \n       !TrueQ[xmin < pivot] ||  !IntegerQ[nlog] || \
+nlog < 3, \n     Return[propFailure[\"ContourSettings\", \n       \"Require 0 \
+< xmin < pivot, positive depth and steps, integer nlog >= 3.\"]]]; \n    \
+logend = Min[1., pivot]; logarithmic = N[Exp[Subdivide[Log[xmin], \
+Log[logend], nlog - 1]]]; \n    real = If[Abs[logend - pivot] <= 1.*^-15, \
+logarithmic, Join[Most[logarithmic], \n       N[Subdivide[logend, pivot, \
+Ceiling[(pivot - logend)/dx]]]]]; \n    vertical = N[Subdivide[0., depth, \
+Ceiling[depth/dy]]]; \n    z = Join[Most[real] + 0.*I, pivot - I*vertical]; \
+Association[\"z_plus\" -> z, \n     \"z_minus\" -> Conjugate[z], \
+\"real_count\" -> Length[real]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildMixedGrid[nutilde_, settings_Association] := \n  \
+Module[{s = propSettings[settings], contour, cn, g, base, cp, cs, eps}, \n   \
+{cp, cs, eps} = Lookup[s, {\"c_phi\", \"c_sigma\", \"i_epsilon\"}]; \n    If[ \
+!propPositiveQ[nutilde] ||  !propPositiveQ[cp] ||  !TrueQ[cp <= 1] || \n      \
+ !propPositiveQ[cs] ||  !TrueQ[cs <= 1] ||  !propRealQ[eps] ||  !TrueQ[0 <= \
+eps <= 0.001] || \n       !IntegerQ[s[\"dps\"]] || s[\"dps\"] < 15 ||  \
+!propPositiveQ[s[\"tail_depth\"]], \n     \
+Return[propFailure[\"GridSettings\", \"Require positive heavy mass, \
+subluminal sound speeds, \\\nvalid regulator, tail depth and precision.\"]]]; \
+contour = BuildWickContour[s]; \n    If[FailureQ[contour], Return[contour]]; \
+cn = GeneralizedCNu[I*nutilde, cp/cs, eps, s[\"dps\"]]; \n    \
+If[FailureQ[cn], Return[cn]]; g = Join[s, contour, Association[\"nutilde\" -> \
+N[nutilde], \n       \"nu\" -> I*N[nutilde], \"Cnu\" -> cn, \
+\"sound_speed_ratio\" -> N[cp/cs], \n       \"sound_speed\" -> \
+Association[\"c_phi\" -> cp, \"c_sigma\" -> cs, \"i_epsilon\" -> eps, \n      \
+   \"ratio\" -> N[cp/cs]], \"formula_version\" -> \n        \
+\"full_momentum_sound_speed_v3_cphi_inverse_cube\"]]; base = \
+MixedPropagator[g, 1.]; \n    If[FailureQ[base], Return[base]]; \n    g = \
+Join[g, KeyTake[base, {\"H1_plus\", \"H2c_plus\", \"H1_minus\", \
+\"H2c_minus\", \"Iplus\", \n        \"Iminus\"}]]; Join[g, \
+Association[\"scientific_hash\" -> \n       propHash[{KeyTake[g, \
+Keys[propDefaults[]]], g[\"nutilde\"], g[\"Cnu\"], g[\"z_plus\"], \n         \
+g[\"Iplus\"]}]]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MixedPropagator[g_Association, ratio_:1.] := \
+Module[{z, main, current, target, step, next, extra, \n    nu, h1, h2, phase, \
+f1, f2, b1, b2, ip, dps, result}, \n   If[ !propPositiveQ[ratio], \
+Return[propFailure[\"MomentumRatio\", \n       \"Momentum ratio must be \
+finite and positive.\"]]]; \n    If[ !And @@ (KeyExistsQ[g, #1] & ) /@ \
+{\"z_plus\", \"nu\", \"nutilde\", \"Cnu\", \"dps\", \"tail_depth\", \n        \
+ \"vertical_step\", \"wick_pivot\", \"c_phi\", \"c_sigma\", \"i_epsilon\"}, \
+\n     Return[propFailure[\"MixedGrid\", \"Incomplete mixed-grid \
+association.\"]]]; \n    z = N[ratio*g[\"z_plus\"]]; main = Length[z]; \
+current = -Im[Last[z]]; \n    target = Max[g[\"tail_depth\"], current]; \
+If[target > current + 1.*^-14, \n     step = Min[g[\"vertical_step\"], 0.05]; \
+next = current + step; \n      extra = If[next >= target, {target}, \
+N[Subdivide[next, target, \n          Ceiling[(target - next)/step]]]]; z = \
+Join[z, ratio*g[\"wick_pivot\"] - I*extra]]; \n    nu = g[\"nu\"]; dps = \
+g[\"dps\"]; \n    h1 = Quiet[Check[N[(HankelH1[SetPrecision[nu, dps], \
+SetPrecision[#1, dps]] & ) /@ z, \n        MachinePrecision], $Failed]]; \n   \
+ h2 = Quiet[Check[N[(HankelH2[Conjugate[SetPrecision[nu, dps]], \
+SetPrecision[#1, dps]] & ) /@ z, \n        MachinePrecision], $Failed]]; If[ \
+!propVectorQ[h1] ||  !propVectorQ[h2], \n     \
+Return[propFailure[\"SpecialFunction\", \n       \"Hankel evaluation failed \
+at the requested precision.\"]]]; \n    phase = \
+Exp[(-I)*(g[\"c_phi\"]/g[\"c_sigma\"] - I*g[\"i_epsilon\"])*z]; f2 = \
+h2*(phase/Sqrt[z]); \n    f1 = h1*(phase/Sqrt[z]); b1 = \
+(-I)*ReverseCumulativeTrapezoid[f2, z]; \n    b2 = Exp[I*Pi*((1 - \
+2*nu)/4)]*g[\"Cnu\"] - I*CumulativeTrapezoid[f1, z]; \n    ip = \
+Exp[(-Pi)*g[\"nutilde\"]]*z^(3/2)*(h1*b1 + h2*b2); If[ !propVectorQ[ip], \n   \
+  Return[propFailure[\"NonFinite\", \"Mixed propagator is not finite.\"]]]; \
+\n    {z, h1, h2, ip} = (Take[#1, main] & ) /@ {z, h1, h2, ip}; \n    result \
+= Association[\"ratio\" -> N[ratio], \"z_plus\" -> z, \"z_minus\" -> \
+Conjugate[z], \n      \"H1_plus\" -> h1, \"H2c_plus\" -> h2, \"H1_minus\" -> \
+Conjugate[h2], \"H2c_minus\" -> Conjugate[h1], \n      \"Iplus\" -> ip, \
+\"Iminus\" -> Conjugate[ip]]; result]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildRatioBundle[g_Association, minimumRatio_, \
+nodeCount_] := \n  Module[{ratios, rows, fail, b}, If[ \
+!propPositiveQ[minimumRatio] ||  !TrueQ[minimumRatio < 1] || \n       \
+!IntegerQ[nodeCount] || nodeCount < 3, Return[propFailure[\"RatioSettings\", \
+\n       \"Require 0 < minimumRatio < 1 and integer nodeCount >= 3.\"]]]; \n  \
+  ratios = N[Exp[Subdivide[Log[minimumRatio], 0., nodeCount - 1]]]; \n    \
+rows = (MixedPropagator[g, #1] & ) /@ ratios; fail = propFirstFailure[rows]; \
+\n    If[FailureQ[fail], Return[fail]]; b = Association[\"z_plus\" -> \
+g[\"z_plus\"], \n      \"z_minus\" -> g[\"z_minus\"], \"ratios\" -> ratios, \
+\"i_plus\" -> Lookup[rows, \"Iplus\"], \n      \"h1_plus\" -> Lookup[rows, \
+\"H1_plus\"], \"h2c_plus\" -> Lookup[rows, \"H2c_plus\"], \n      \"nutilde\" \
+-> g[\"nutilde\"], \"c_phi\" -> g[\"c_phi\"], \"c_sigma\" -> g[\"c_sigma\"], \
+\n      \"i_epsilon\" -> g[\"i_epsilon\"], \"formula_version\" -> \
+g[\"formula_version\"]]; \n    Join[b, Association[\"scientific_hash\" -> \
+propHash[b], \"grid_hash\" -> \n       Lookup[g, \"scientific_hash\", \
+propHash[g]]]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RatioEvaluate[b_Association, key_String, ratio_] := \
+\n  Module[{r = ratio, rr, values, tol = 32.*$MachineEpsilon, logs, x, j, t}, \
+\n   If[ !MemberQ[{\"i_plus\", \"h1_plus\", \"h2c_plus\"}, key] ||  \
+!KeyExistsQ[b, key] || \n       !KeyExistsQ[b, \"ratios\"], \
+Return[propFailure[\"RatioTable\", \n       \"Unknown or missing ratio \
+table.\"]]]; rr = b[\"ratios\"]; values = b[key]; \n    If[ !ListQ[rr] || \
+Length[rr] < 2 ||  !VectorQ[rr, propPositiveQ] || \n       !And @@ \
+Thread[Differences[rr] > 0] ||  !ListQ[values] || Length[Dimensions[values]] \
+!= 2 || \n      Length[values] != Length[rr], \
+Return[propFailure[\"RatioTable\", \n       \"Ratio nodes must increase and \
+the table must contain one finite contour row per node.\"]]]; \n    If[ \
+!propPositiveQ[r] ||  !TrueQ[First[rr]*(1 - tol) <= r <= Last[rr]*(1 + tol)], \
+\n     Return[propFailure[\"RatioDomain\", \"Momentum ratio lies outside the \
+tabulated domain.\", \n       Association[\"ratio\" -> ratio, \
+\"minimum_ratio\" -> First[rr], \"maximum_ratio\" -> Last[rr]]]]]; \n    r = \
+Clip[r, {First[rr], Last[rr]}]; If[r == First[rr], Return[First[values]]]; \n \
+   If[r == Last[rr], Return[Last[values]]]; logs = Log[rr]; x = Log[r]; \n    \
+j = LengthWhile[logs, #1 <= x & ]; j = Min[j, Length[rr] - 1]; \n    t = (x - \
+logs[[j]])/(logs[[j + 1]] - logs[[j]]); \n    With[{row = (1 - t)*values[[j]] \
++ t*values[[j + 1]]}, If[propVectorQ[row], row, \n      \
+propFailure[\"RatioTable\", \"Interpolated row is not finite.\"]]]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propMomentaQ[k_, n_] := ListQ[k] && Length[k] == n && \
+VectorQ[k, propPositiveQ]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propRows[b_, ratios_] := Module[{rows = \
+(RatioEvaluate[b, \"i_plus\", #1] & ) /@ ratios, f}, \n   f = \
+propFirstFailure[rows]; If[FailureQ[f], f, rows]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumShape[b_Association, k1_, k2_, k3_] := \n  \
+Module[{k = {k1, k2, k3}, rows, q, a, c, z, integral, r}, \n   If[ \
+!propMomentaQ[k, 3], Return[propFailure[\"Momenta\", \n       \"Expected \
+three positive finite momenta.\"]]]; {a, c, q} = Sort[k]; \n    rows = \
+propRows[b, {a/q, c/q, 1.}]; If[FailureQ[rows], Return[rows]]; z = \
+b[\"z_plus\"]; \n    integral = ContourTrapezoid[Times @@ rows/z^4, z]; \
+If[FailureQ[integral], Return[integral]]; \n    r = \
+b[\"c_phi\"]/b[\"c_sigma\"]; \
+propNumericResult[((-Pi^2/512)*r^3*(q^2/(a*c))*Im[integral])/\n      \
+b[\"c_phi\"]^(3/2), \"Bispectrum shape\"]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContactShape[b_Association, k_List] := Module[{rows, \
+z, integral, r}, \n   If[ !propMomentaQ[k, 4], \
+Return[propFailure[\"Momenta\", \n       \"Expected four positive finite \
+momenta.\"]]]; rows = propRows[b, k/Total[k]]; \n    If[FailureQ[rows], \
+Return[rows]]; z = b[\"z_plus\"]; \n    integral = ContourTrapezoid[Times @@ \
+rows/z^4, z]; If[FailureQ[integral], Return[integral]]; \n    r = \
+b[\"c_phi\"]/b[\"c_sigma\"]; \
+propNumericResult[(Pi^2/8192)*(r^5/b[\"c_phi\"]^3)*Im[integral], \n     \
+\"Contact shape\"]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FourMomentumVectors[k1_, k2_, k3_, mu12_, mu13_, \
+phi3_] := Module[{s12, s13, v1, v2, v3}, \n   If[ !propMomentaQ[{k1, k2, k3}, \
+3] ||  !And @@ propRealQ /@ {mu12, mu13, phi3} || \n       !TrueQ[-1 <= mu12 \
+<= 1] ||  !TrueQ[-1 <= mu13 <= 1], \n     \
+Return[propFailure[\"MomentumGeometry\", \n       \"Require positive momenta, \
+finite angles and direction cosines in [-1,1].\"]]]; \n    s12 = Sqrt[Max[0., \
+1 - mu12^2]]; s13 = Sqrt[Max[0., 1 - mu13^2]]; v1 = {0., 0., N[k1]}; \n    v2 \
+= N[{k2*s12, 0., k2*mu12}]; v3 = N[{k3*s13*Cos[phi3], k3*s13*Sin[phi3], \
+k3*mu13}]; \n    {v1, v2, v3, -v1 - v2 - v3}]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propExchangeChannel[b_, v_, pair_, other_, rows_] := \
+\n  Module[{internal, z, zm, h1, h2, f, first, second, jabpm, jabpp, jcdpm, \
+jcdpp, jabmp, ordered, \n    factorized}, internal = \
+Norm[Total[v[[pair]]]]/Total[Norm /@ v]; \n    h1 = RatioEvaluate[b, \
+\"h1_plus\", internal]; If[FailureQ[h1], Return[h1]]; \n    h2 = \
+RatioEvaluate[b, \"h2c_plus\", internal]; If[FailureQ[h2], Return[h2]]; z = \
+b[\"z_plus\"]; \n    zm = Conjugate[z]; first = Times @@ rows[[pair]]; second \
+= Times @@ rows[[other]]; \n    jabpm = (first*h2)/z^(5/2); jabpp = \
+(first*h1)/z^(5/2); jcdpm = (second*h2)/z^(5/2); \n    jcdpp = \
+(second*h1)/z^(5/2); jabmp = (Conjugate[first]*Conjugate[h2])/zm^(5/2); \n    \
+ordered = ContourTrapezoid[jabpm*CumulativeTrapezoid[jcdpp, z] + \n       \
+jcdpm*CumulativeTrapezoid[jabpp, z], z]; factorized = ContourTrapezoid[jcdpm, \
+z]*\n      ContourTrapezoid[jabmp, zm]; \
+propNumericResult[Exp[(-Pi)*b[\"nutilde\"]]*\n      Re[ordered - factorized], \
+\"Exchange channel\"]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExchangeShape[b_Association, v_List] := Module[{k, \
+scale, rows, channels, fail, r}, \n   If[Dimensions[v] != {4, 3} ||  \
+!MatrixQ[v, propRealQ], \n     Return[propFailure[\"MomentumGeometry\", \
+\"Expected a finite real 4 by 3 momentum array.\"]]]; \n    k = Norm /@ v; \
+scale = Max[1., Max[k]]; If[Norm[Total[v]] > 1.*^-11*scale || \n       \
+!propMomentaQ[k, 4], Return[propFailure[\"MomentumGeometry\", \n       \"Four \
+positive-magnitude momenta must close.\"]]]; rows = propRows[b, k/Total[k]]; \
+\n    If[FailureQ[rows], Return[rows]]; channels = \n     \
+(propExchangeChannel[b, v, #1[[1]], #1[[2]], rows] & ) /@ {{{1, 2}, {3, 4}}, \
+{{1, 3}, {2, 4}}, \n       {{1, 4}, {2, 3}}}; fail = \
+propFirstFailure[channels]; If[FailureQ[fail], Return[fail]]; \n    r = \
+b[\"c_phi\"]/b[\"c_sigma\"]; \
+propNumericResult[(Pi^3/2^15)*(r^5/b[\"c_phi\"]^3)*Total[channels], \n     \
+\"Exchange shape\"]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propS[g_, sig_] := Module[{nu = g[\"nu\"], integral, \
+pref}, \n   integral = ContourTrapezoid[g[\"Iplus\"]^2*g[\"z_plus\"]^(-5/2 + \
+sig*nu), g[\"z_plus\"]]; \n    pref = (-Pi^2)*g[\"Cnu\"]*(Sin[Pi/4 + \
+sig*Pi*(nu/2)]/(2^(8 + sig*nu)*Gamma[1 + sig*nu]*\n        Sin[sig*Pi*nu])); \
+propNumericResult[pref*integral, \"Squeezed coefficient\"]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propCoefficients[p_, m_] := If[FailureQ[p], p, \
+If[FailureQ[m], m, {Re[p + m], Im[m - p], p, m}]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SqueezedCoefficients[g_Association] := \
+propCoefficients[propS[g, 1], propS[g, -1]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propTriangular[g_, sig_, lambda3_, lambda4_, hard_] \
+:= \n  Module[{nu = g[\"nu\"], z = g[\"z_plus\"], zm = g[\"z_minus\"], ip = \
+g[\"Iplus\"], im = g[\"Iminus\"], \n    h1 = g[\"H1_plus\"], h2 = \
+g[\"H2c_plus\"], hm = g[\"H1_minus\"], hardprop, ic, power, jpp, jpm, qp, \n  \
+  qm, ordered, factorized, is, pref}, hardprop = MixedPropagator[g, hard]; \n \
+   If[FailureQ[hardprop], Return[hardprop]]; \n    ic = \
+ContourTrapezoid[hardprop[\"Iplus\"]^3*z^(-5/2 + sig*nu), z]; power = -1 + \
+sig*nu; \n    jpp = (ip^2*h1)/z^(5/2); jpm = (ip^2*h2)/z^(5/2); qp = \
+z^power*ip*h1; qm = zm^power*im*hm; \n    ordered = \
+ContourTrapezoid[z^power*ip*h2*CumulativeTrapezoid[jpp, z] + \n       \
+jpm*CumulativeTrapezoid[qp, z], z]; factorized = ContourTrapezoid[jpm, z]*\n  \
+    ContourTrapezoid[qm, zm]; is = hard^(3/2 - \
+sig*nu)*Exp[(-Pi)*g[\"nutilde\"]]*\n      (ordered - factorized); pref = 2^(1 \
+- sig*nu)*Sin[Pi/4 + sig*Pi*(nu/2)]*\n      (g[\"Cnu\"]/(Gamma[1 + \
+sig*nu]*Sin[sig*Pi*nu])); propNumericResult[\n     pref*(-4*I*(lambda4/Pi)*ic \
++ lambda3^2*3*is), \"Triangular coefficient\"]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TriangularCoefficients[g_Association, lambda3_:1., \
+lambda4_:Pi/4, hard_:1/3] := \n  If[ !propRealQ[lambda3] ||  \
+!propRealQ[lambda4] ||  !propPositiveQ[hard], \n   \
+propFailure[\"CoefficientSettings\", \"Require real couplings and a positive \
+hard fraction.\"], \n   propCoefficients[propTriangular[g, 1, lambda3, \
+lambda4, hard], \n    propTriangular[g, -1, lambda3, lambda4, hard]]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propCollapsed[g_, sig_, ratio_] := Module[{nu = \
+g[\"nu\"], power, plus, minus, a, pref}, \n   power = -5/2 + sig*nu; plus = \
+ContourTrapezoid[g[\"z_plus\"]^power*g[\"Iplus\"]^2, g[\"z_plus\"]]; \n    \
+minus = ContourTrapezoid[g[\"z_minus\"]^power*g[\"Iminus\"]^2, \
+g[\"z_minus\"]]; \n    a = 2 + ratio + 1/ratio; pref = \
+(Gamma[(-sig)*nu]^2/(2^(5 - sig*nu)*Pi^2))*a^(-5/2 + sig*nu); \n    \
+propNumericResult[pref*plus*(plus - minus), \"Collapsed coefficient\"]]; "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CollapsedCoefficients[g_Association, ratio_:1.] := \
+If[ !propPositiveQ[ratio], \n   propFailure[\"CoefficientSettings\", \"Hard \
+momentum ratio must be positive.\"], \n   propCoefficients[propCollapsed[g, \
+1, ratio], propCollapsed[g, -1, ratio]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockBispectrumKernel[x_, nt_, s1_, s2_] := \
+(s1*Sin[(-nt)*Log[x]] + s2*Cos[(-nt)*Log[x]])/x^2^(-1); "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockTriangleKernel[x_, nt_, t1_, t2_] := \
+(t1*Sin[(-nt)*Log[x]] + t2*Cos[(-nt)*Log[x]])/x^(3/2); "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ClockCollapsedKernel[x_, nt_, c1_, c2_] := \
+c1*Sin[-2*nt*Log[x]] + c2*Cos[-2*nt*Log[x]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContourTrapezoid[___] := \
+propFailure[\"QuadratureShape\", \"Expected two finite vectors.\"]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CumulativeTrapezoid[___] := \
+propFailure[\"QuadratureShape\", \"Expected two finite vectors.\"]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReverseCumulativeTrapezoid[___] := \
+propFailure[\"QuadratureShape\", \"Expected two finite vectors.\"]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildWickContour[___] := \
+propFailure[\"ContourSettings\", \"Expected a settings association.\"]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildMixedGrid[___] := propFailure[\"GridSettings\", \
+\n   \"Expected heavy mass and settings association.\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MixedPropagator[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MixedPropagator[___] := propFailure[\"MixedGrid\", \
+\"Expected a mixed-grid association.\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildRatioBundle[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BuildRatioBundle[___] := \
+propFailure[\"RatioSettings\", \n   \"Expected grid, minimum ratio and node \
+count.\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RatioEvaluate[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RatioEvaluate[___] := propFailure[\"RatioTable\", \n  \
+ \"Expected a ratio bundle, table key and numeric ratio.\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumShape[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumShape[___] := propFailure[\"Momenta\", \n   \
+\"Expected a ratio bundle and three positive momenta.\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContactShape[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ContactShape[___] := propFailure[\"Momenta\", \
+\"Expected a ratio bundle and four positive momenta.\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExchangeShape[f_Failure, ___] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ExchangeShape[___] := \
+propFailure[\"MomentumGeometry\", \n   \"Expected a ratio bundle and four \
+closed vectors.\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SqueezedCoefficients[f_Failure] := f; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TriangularCoefficients[f_Failure, ___] := f; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CollapsedCoefficients[f_Failure, ___] := f; "}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"End[]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EndPackage[]; "}]], "Input", 
+   InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]

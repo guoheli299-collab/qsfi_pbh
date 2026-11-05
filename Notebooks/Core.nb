@@ -1,0 +1,378 @@
+Notebook[{Cell["QSFI\[Dash]PBH | Core", "Title"], 
+  Cell["Native Mathematica module loaded by QSFIPBH.nb.", "Text"], 
+  Cell["Definitions", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BeginPackage[\"QSFIPBH`\"]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$ProjectRoot::usage = \"Directory containing the \
+standalone Mathematica source package.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProductionConfig::usage = \n  \
+\"ProductionConfig[overrides] returns the physical and numerical \
+configuration.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AreaFromPeakHeight::usage = \
+\"AreaFromPeakHeight[peak,delta] gives the power integrated in d ln k.\"; "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"PeakHeightFromArea::usage = \n  \
+\"PeakHeightFromArea[area,delta] converts integrated power to peak height.\"; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"UnitAreaProfile::usage = \n  \
+\"UnitAreaProfile[x,delta,kPeakR] is the area-normalized lognormal \
+profile.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DensityVarianceResponse::usage = \n  \
+\"DensityVarianceResponse[delta,kPeakR,order] uses the original Gauss-Hermite \
+rule.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DensityVariance::usage = \
+\"DensityVariance[area,delta,kPeakR] gives sigma^2.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"QNGFromCumulants::usage = \
+\"QNGFromCumulants[S3,S4,deltaC] gives S3+deltaC S4/4.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LogBetaGaussian::usage = \n  \
+\"LogBetaGaussian[area,C2,deltaC,gamma] is the original high-peak log \
+abundance.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"GaussianTargetArea::usage = \n  \
+\"GaussianTargetArea[beta,C2,deltaC,gamma] solves the Gaussian abundance \
+target.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LogBetaNG::usage = \n  \"LogBetaNG[area,S3,S4,C2] \
+adds the original fourth-cumulant exponent correction.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RequiredPowerRatio::usage = \n  \
+\"RequiredPowerRatio[QNG,beta,gamma,deltaC] inverts abundance with fixed \
+cumulants.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CumulantsFromCoefficients::usage = \n  \
+\"CumulantsFromCoefficients[row,l3,l4,area,mixing] returns cumulants and \
+propagated errors.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReadArchivedCoefficients::usage = \n  \
+\"ReadArchivedCoefficients[path] reads and corrects pre-correction four-point \
+projections.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ComputeExtrema::usage = \"ComputeExtrema[rows,config] \
+finds exact discrete coupling-grid extrema.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ComputePBHConstraints::usage = \n  \
+\"ComputePBHConstraints[rows] computes the conditional PBH constraint \
+example.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FitTemplate::usage = \n  \
+\"FitTemplate[template,data,covariance] fits one template amplitude with full \
+covariance.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EnsureDirectory::usage = \"EnsureDirectory[path] \
+creates a directory if necessary.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"WriteJSON::usage = \n  \"WriteJSON[path,expression] \
+exports JSON, representing nonfinite diagnostics as strings.\"; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReadNumericCSV::usage = \"ReadNumericCSV[path] reads \
+numeric CSV records as Associations.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"WriteAssociationCSV::usage = \n  \
+\"WriteAssociationCSV[path,rows] writes a header and association values.\"; "}\
+]], "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Begin[\"`Private`\"]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"finiteRealQ[x_] := NumericQ[x] && FreeQ[N[x], \
+_DirectedInfinity | Indeterminate] && \n   TrueQ[Im[N[x]] == 0]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"positiveRealQ[x_] := finiteRealQ[x] && TrueQ[x > 0]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"require[condition_, tag_, message_] := If[ \
+!TrueQ[condition], \n   Throw[Failure[tag, Association[\"MessageTemplate\" -> \
+message]]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProductionConfig[overrides_:Association[]] := \n  \
+Catch[Module[{c}, require[AssociationQ[overrides], \"Configuration\", \n      \
+\"Overrides must be an Association.\"]; \n     c = \
+Join[Association[\"lambda3_points\" -> 2001, \"lambda4_points\" -> 2001, \
+\"lambda3_min\" -> -1., \n        \"lambda3_max\" -> 1., \"lambda4_min\" -> \
+-1., \"lambda4_max\" -> 1., \n        \"nus\" -> {0.1, 0.3, 0.5, 1.}, \
+\"sound_speed_ratios\" -> {0.3, 1., 3.}, \n        \"lognormal_delta\" -> \
+0.5, \"reference_peak_height\" -> 0.01, \"k_peak_r\" -> Sqrt[2.], \n        \
+\"lambda2_over_h\" -> 0.38, \"lambda2_over_H\" -> 0.38, \"qng_max\" -> 6., \n \
+       \"target_beta\" -> 10.^(-15), \"delta_c\" -> 0.5, \"gamma_collapse\" \
+-> 0.2, \n        \"full_momentum_sigma_range\" -> 5., \
+\"lognormal_sigma_range\" -> 5., \n        \"full_ratio_floor\" -> 10.^(-5), \
+\"ratio_floor\" -> 10.^(-5), \"full_ratio_nodes\" -> 128, \n        \
+\"ratio_nodes\" -> 128, \"wick_pivot\" -> 4., \"wick_depth\" -> 16., \
+\"tail_depth\" -> 18., \n        \"real_step\" -> 0.025, \"vertical_step\" -> \
+0.025, \"nlog\" -> 500, \"xmin\" -> 10.^(-6), \n        \"dps\" -> 50, \
+\"c_phi\" -> 1., \"c_sigma\" -> 1., \"i_epsilon\" -> 10.^(-8), \n        \
+\"radial_sampling\" -> \"sqrt_lognormal_importance\", \
+\"sobol_power_bispectrum\" -> 12, \n        \"sobol_power_contact\" -> 12, \
+\"sobol_power_exchange\" -> 12, \"sobol_replicates\" -> 4, \n        \
+\"sobol_min_replicates_four_point\" -> 6, \"sobol_max_replicates_four_point\" \
+-> 12, \n        \"sobol_relative_error_target_bispectrum\" -> 0.01, \n       \
+ \"sobol_relative_error_target_four_point\" -> 0.05, \
+\"sobol_max_power_increment_four_point\" -> \n         3, \"sobol_seed\" -> \
+1729, \"production_contract_version\" -> \n         \
+\"qsfi-pbh-wolfram-cphi-inverse-cube-v1\"], overrides]; \n     \
+If[KeyExistsQ[overrides, \"lambda2_over_h\"], c[\"lambda2_over_H\"] = \
+c[\"lambda2_over_h\"]]; \n     If[KeyExistsQ[overrides, \"lambda2_over_H\"], \
+c[\"lambda2_over_h\"] = c[\"lambda2_over_H\"]]; \n     \
+require[IntegerQ[c[\"lambda3_points\"]] && c[\"lambda3_points\"] >= 3 && \n   \
+    IntegerQ[c[\"lambda4_points\"]] && c[\"lambda4_points\"] >= 3, \
+\"Configuration\", \n      \"Coupling axes require at least three points.\"]; \
+\n     require[c[\"lambda3_min\"] < c[\"lambda3_max\"] && c[\"lambda4_min\"] \
+< c[\"lambda4_max\"], \n      \"Configuration\", \"Coupling bounds must be \
+increasing.\"]; \n     require[Inequality[0, Less, c[\"lambda2_over_H\"], \
+LessEqual, 0.8] && \n       c[\"lognormal_delta\"] > 0 && \
+c[\"reference_peak_height\"] > 0 && \n       Inequality[0, Less, \
+c[\"c_phi\"], LessEqual, 1] && Inequality[0, Less, c[\"c_sigma\"], \n        \
+LessEqual, 1], \"Configuration\", \"Invalid mixing, sound speed or \
+power-spectrum settings.\"]; \n     c]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AreaFromPeakHeight[p_, d_:0.5] := \
+Catch[require[positiveRealQ[p] && positiveRealQ[d], \"Spectrum\", \n     \
+\"Peak and width must be positive finite reals.\"]; Sqrt[2.*Pi]*d*p]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"PeakHeightFromArea[a_, d_:0.5] := \
+Catch[require[positiveRealQ[a] && positiveRealQ[d], \"Spectrum\", \n     \
+\"Area and width must be positive finite reals.\"]; a/(Sqrt[2.*Pi]*d)]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"UnitAreaProfile[x_, d_:0.5, k_:Sqrt[2.]] := \n  \
+Catch[require[And @@ positiveRealQ /@ Flatten[{x, d, k}], \"Spectrum\", \n    \
+ \"Profile arguments must be positive finite reals.\"]; \n    \
+Exp[Clip[-0.5*(Log[x/k]/d)^2 - Log[Sqrt[2.*Pi]*d], {Log[$MinMachineNumber], \
+Infinity}]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"varianceResponse[d_, k_, n_] := varianceResponse[d, \
+k, n] = \n   Module[{off, matrix, eig, nodes, weights, x}, off = Sqrt[Range[n \
+- 1]/2.]; \n     matrix = DiagonalMatrix[off, 1] + DiagonalMatrix[off, -1]; \
+eig = Eigensystem[matrix]; \n     nodes = eig[[1]]; weights = (First[#1]^2 & \
+) /@ eig[[2]]; x = k*Exp[Sqrt[2.]*d*nodes]; \n     \
+Total[weights*(16./81.)*x^4*Exp[-x^2]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DensityVarianceResponse[d_:0.5, k_:Sqrt[2.], n_:80] \
+:= \n  Catch[require[positiveRealQ[d] && positiveRealQ[k] && IntegerQ[n] && n \
+>= 8, \"Spectrum\", \n     \"Width and peak position must be positive; order \
+must be at least eight.\"]; \n    varianceResponse[N[d], N[k], n]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"DensityVariance[a_, d_:0.5, k_:Sqrt[2.]] := \n  \
+Catch[require[positiveRealQ[a], \"Spectrum\", \"Area must be positive.\"]; \n \
+   a*DensityVarianceResponse[d, k]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"QNGFromCumulants[s3_, s4_, dc_:0.5] := \n  \
+Catch[require[positiveRealQ[dc] && And @@ finiteRealQ /@ Flatten[{s3, s4}], \
+\"Cumulants\", \n     \"Cumulants must be finite and the threshold \
+positive.\"]; s3 + dc*(s4/4.)]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LogBetaGaussian[a_, c2_, dc_:0.5, gamma_:0.2] := \n  \
+Catch[Module[{nu}, require[And @@ positiveRealQ /@ {a, c2, dc, gamma}, \
+\"Abundance\", \n      \"Abundance inputs must be positive.\"]; nu = \
+dc/Sqrt[a*c2]; Log[gamma] - Log[2.*Pi]/2 - \n      Log[nu] - nu^2/2]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"GaussianTargetArea[target_, c2_, dc_:0.5, gamma_:0.2] \
+:= \n  Catch[Module[{lo = 10.^(-8), hi = 1., mid}, \n    \
+require[positiveRealQ[target] && target < 1 && positiveRealQ[c2] && \
+positiveRealQ[dc] && \n       positiveRealQ[gamma], \"Abundance\", \n      \
+\"Require 0 < target < 1, C2 > 0, positive threshold and collapse factor.\"]; \
+\n     Do[mid = Sqrt[lo*hi]; If[LogBetaGaussian[mid, c2, dc, gamma] < \
+Log[target], lo = mid, \n        hi = mid], {240}]; Sqrt[lo*hi]]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LogBetaNG[a_, s3_, s4_, c2_] := \n  \
+Catch[Module[{gaussian}, require[And @@ finiteRealQ /@ {s3, s4}, \
+\"Cumulants\", \n      \"Reduced cumulants must be finite real scalars.\"]; \
+gaussian = LogBetaGaussian[a, c2]; \n     If[FailureQ[gaussian], \
+Throw[gaussian]]; gaussian + (0.25/(a*c2))*((s3 + s4/8.)/12.)]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RequiredPowerRatio[(q_)?NumericQ, target_:10.^(-15), \
+gamma_:0.2, dc_:0.5] := \n  Catch[Module[{a, arg, vg, v}, \
+require[finiteRealQ[q] && positiveRealQ[target] && target < 1 && \n       \
+positiveRealQ[gamma] && positiveRealQ[dc], \"Abundance\", \n      \"Require \
+finite QNG and valid target, gamma and threshold.\"]; a = 1 - dc*(q/3.); \n   \
+  require[a >= 0, \"HighPeakDomain\", \n      \"The suppressive high-peak \
+inversion requires QNG <= 3/delta_c.\"]; \n     arg = \
+gamma^2/(2.*Pi*target^2); vg = ProductLog[arg]; If[a == 0, \
+Return[N[vg/arg]]]; \n     v = ProductLog[a*arg]/a; N[vg/v]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RequiredPowerRatio[___] := Failure[\"Abundance\", \n  \
+ Association[\"MessageTemplate\" -> \n     \"QNG must be a finite real \
+scalar; use Map for vector evaluation.\"]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CumulantsFromCoefficients[row_Association, l3_, l4_, \
+area_, mixing_:0.38, dc_:0.5] := \n  Catch[Module[{f, tc, te, s3, sc, se, e3, \
+ec, ee}, \n    require[positiveRealQ[area] && positiveRealQ[mixing] && \
+positiveRealQ[dc], \"Cumulants\", \n      \"Area, mixing and threshold must \
+be positive.\"]; \n     require[And @@ (KeyExistsQ[row, #1] & ) /@ \
+{\"C3_hat\", \"C4_contact_hat\", \"C4_exchange_hat\"}, \n      \"Cumulants\", \
+\"A hatted coefficient is missing.\"]; \n     require[And @@ finiteRealQ /@ \
+Flatten[{l3, l4}], \"Cumulants\", \n      \"Couplings must be finite real \
+numbers.\"]; \n     require[And @@ finiteRealQ /@ Lookup[row, {\"C3_hat\", \
+\"C4_contact_hat\", \"C4_exchange_hat\"}], \n      \"Cumulants\", \"Hatted \
+coefficients must be finite real numbers.\"]; \n     f = \
+mixing^3*(l3/Sqrt[area]); tc = mixing^4*(l4/area); te = mixing^4*(l3^2/area); \
+\n     s3 = row[\"C3_hat\"]*f; sc = row[\"C4_contact_hat\"]*tc; se = \
+row[\"C4_exchange_hat\"]*te; \n     e3 = Lookup[row, \
+\"C3_hat_standard_error\", 0.]*Abs[f]; \n     ec = Lookup[row, \
+\"C4_contact_hat_standard_error\", 0.]*Abs[tc]; \n     ee = Lookup[row, \
+\"C4_exchange_hat_standard_error\", 0.]*Abs[te]; \n     Association[\"S3\" -> \
+s3, \"S4_contact\" -> sc, \"S4_exchange\" -> se, \"S4\" -> sc + se, \n      \
+\"QNG\" -> QNGFromCumulants[s3, sc + se, dc], \"Q_NG\" -> \
+QNGFromCumulants[s3, sc + se, dc], \n      \"S3_standard_error\" -> e3, \
+\"S4_contact_standard_error\" -> ec, \n      \"S4_exchange_standard_error\" \
+-> ee, \"S4_standard_error\" -> Sqrt[ec^2 + ee^2]]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"numericCell[(x_)?NumericQ] := x; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"numericCell[s_String] := Catch[Module[{t = \
+StringTrim[s]}, \n    require[StringMatchQ[t, RegularExpression[\n        \
+\"[+-]?(?:[0-9]+(?:\\\\.[0-9]*)?|\\\\.[0-9]+)(?:(?:[eE]|\\\\*\\\\^)[+-]?[0-9]\
++)?\"]], \"InputData\", \n      \"Numeric table contains an invalid \
+number.\"]; \n     ToExpression[StringReplace[t, {\"e\" -> \"*^\", \"E\" -> \
+\"*^\"}], InputForm]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReadNumericCSV[path_] := Catch[Module[{table}, \
+require[FileExistsQ[path], \"InputData\", \n      \"Numeric input file is \
+missing.\"]; table = Import[path, \"CSV\"]; \n     \
+(AssociationThread[First[table], numericCell /@ #1] & ) /@ Rest[table]]]; "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReadArchivedCoefficients[path_:Automatic] := \n  \
+Catch[Module[{file, text, lines, header, rows, cp, factor}, \n    file = \
+If[path === Automatic, FileNameJoin[{$ProjectRoot, \"reference_outputs\", \
+\"inputs\", \n         \"archived_numerical_results.txt\"}], path]; \
+require[FileExistsQ[file], \"InputData\", \n      \"Archived pre-correction \
+report is missing.\"]; text = Import[file, \"Text\"]; \n     \
+require[StringContainsQ[text, \"[projected_coefficients]\"], \"InputData\", \
+\n      \"No projected coefficient table found.\"]; \n     lines = \
+Select[StringSplit[Last[StringSplit[text, \"[projected_coefficients]\"]], \n  \
+      {\"\\r\\n\", \"\\n\"}], StringTrim[#1] != \"\" & ]; header = \
+StringSplit[First[lines]]; \n     rows = (AssociationThread[header, \
+numericCell /@ StringSplit[#1]] & ) /@ Rest[lines]; \n     Table[cp = \
+If[Abs[row[\"r_s\"] - 0.3] < 10^(-12), 0.3, 1.]; factor = cp^(-6); \n       \
+Join[row, Association[\"c_phi\" -> cp, \"four_point_correction\" -> factor], \
+\n        Association[(#1 -> row[#1]*factor & ) /@ {\"C4_contact_hat\", \
+\"C4_exchange_hat\", \n           \"C4_contact_hat_standard_error\", \
+\"C4_exchange_hat_standard_error\"}]], {row, rows}]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ComputeExtrema[rows_List, config_:Automatic] := \n  \
+Catch[Module[{c = If[config === Automatic, ProductionConfig[], config], area, \
+c2, axis, yaxis, \n     l4, values, index, l3, point, q, limit, dc, mixing, \
+slope, candidates, valid, makeCandidate}, \n    require[AssociationQ[c] && \
+finiteRealQ[c[\"qng_max\"]] && positiveRealQ[c[\"delta_c\"]], \n      \
+\"Configuration\", \"Extrema need a finite QNG bound and positive \
+threshold.\"]; \n     area = AreaFromPeakHeight[c[\"reference_peak_height\"], \
+c[\"lognormal_delta\"]]; \n     c2 = \
+DensityVarianceResponse[c[\"lognormal_delta\"], c[\"k_peak_r\"]]; \n     axis \
+= Subdivide[c[\"lambda3_min\"], c[\"lambda3_max\"], c[\"lambda3_points\"] - \
+1]; \n     yaxis = Subdivide[c[\"lambda4_min\"], c[\"lambda4_max\"], \
+c[\"lambda4_points\"] - 1]; \n     dc = c[\"delta_c\"]; limit = \
+Min[c[\"qng_max\"], 3/dc]; mixing = c[\"lambda2_over_H\"]; \n     Table[l4 = \
+If[row[\"C4_contact_hat\"] < 0, First[yaxis], Last[yaxis]]; \n       values = \
+CumulantsFromCoefficients[row, axis, l4, area, mixing, dc]; \n       \
+require[AssociationQ[values], \"Cumulants\", \n        \"Cannot compute \
+extrema from invalid coefficients.\"]; \n       index = \
+First[Ordering[values[\"QNG\"], -1]]; l3 = axis[[index]]; \n       \
+If[values[\"QNG\"][[index]] > limit, slope = \
+dc*mixing^4*(row[\"C4_contact_hat\"]/(4*area)); \n         makeCandidate[x_] \
+:= Module[{base, bound, j, yy, pt, neighbor, neighborPoint}, \n           \
+base = CumulantsFromCoefficients[row, x, 0., area, mixing, dc][\"QNG\"]; \n   \
+         If[slope == 0, j = Length[yaxis], bound = (limit - base)/slope; j = \
+If[slope > 0, \n                Floor[((bound - First[yaxis])/(Last[yaxis] - \
+First[yaxis]))*(Length[yaxis] - 1)] + \n                 1, Ceiling[((bound - \
+First[yaxis])/(Last[yaxis] - First[yaxis]))*(Length[yaxis] - \n               \
+     1)] + 1]; j = Clip[j, {1, Length[yaxis]}]]; yy = yaxis[[j]]; \n          \
+  pt = CumulantsFromCoefficients[row, x, yy, area, mixing, dc]; \n            \
+If[pt[\"QNG\"] > limit && slope != 0, j -= Sign[slope]; If[1 <= j <= \
+Length[yaxis], \n               yy = yaxis[[j]]; pt = \
+CumulantsFromCoefficients[row, x, yy, area, mixing, dc]]]; \n            \
+If[pt[\"QNG\"] <= limit && slope != 0, neighbor = j + Sign[slope]; If[1 <= \
+neighbor <= \n                Length[yaxis], neighborPoint = \
+CumulantsFromCoefficients[row, x, yaxis[[neighbor]], \n                  \
+area, mixing, dc]; If[neighborPoint[\"QNG\"] <= limit, yy = \
+yaxis[[neighbor]]; \n                  pt = neighborPoint]]]; If[pt[\"QNG\"] \
+<= limit, {pt[\"QNG\"], x, yy}, Nothing]]; \n         candidates = \
+makeCandidate /@ axis; require[candidates =!= {}, \"HighPeakDomain\", \n      \
+    \"No coupling-grid point satisfies the one-sided QNG bound.\"]; \n        \
+ valid = First[Ordering[candidates[[All,1]], -1]]; {q, l3, l4} = \
+candidates[[valid]]]; \n       point = CumulantsFromCoefficients[row, l3, l4, \
+area, mixing, dc]; q = point[\"QNG\"]; \n       Association[\"r_s\" -> \
+row[\"r_s\"], \"nu_tilde\" -> row[\"nu_tilde\"], \"lambda3_over_H\" -> l3, \n \
+       \"lambda4\" -> l4, \"S3\" -> point[\"S3\"], \"S4\" -> point[\"S4\"], \
+\"Q_NG\" -> q, \n        \"peak_ratio\" -> RequiredPowerRatio[q, \
+c[\"target_beta\"], c[\"gamma_collapse\"], dc], \n        \
+\"log10_beta_ratio\" -> (dc^3/(6*area*c2))*(q/Log[10.])], {row, rows}]]]; "}]]\
+, "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ComputePBHConstraints[rows_List] := \n  \
+Catch[Module[{row, area, c2, q3, qc, qe, mPlanck, mSun, tSun, betaSun, beta, \
+bg, nu2, xopt, \n     qmax}, row = SelectFirst[rows, Abs[#1[\"r_s\"] - 3.] < \
+10^(-12) && Abs[#1[\"nu_tilde\"] - 0.1] < \n          10^(-12) & , \
+Missing[\"Benchmark\"]]; require[AssociationQ[row], \"InputData\", \n      \
+\"PBH benchmark r_s=3, nu_tilde=0.1 is missing.\"]; area = \
+AreaFromPeakHeight[0.07]; \n     c2 = DensityVarianceResponse[]; q3 = \
+row[\"C3_hat\"]*(0.38^3/Sqrt[area]); \n     qc = \
+row[\"C4_contact_hat\"]*(0.38^4/(8*area)); qe = \
+row[\"C4_exchange_hat\"]*(0.38^4/(8*area)); \n     mPlanck = 1.22089*10.^19; \
+mSun = 1.98847*(10.^33/(1.78266192/10.^24)); \n     tSun = \
+Sqrt[0.2*(mPlanck^3/(3.32*Sqrt[106.75]*mSun))]; \n     betaSun = \
+(4./3.)*((0.12*1.05375*(1/(10.^5*2891.2)))/tSun); beta = \
+betaSun*Sqrt[10.^(-3)]; \n     bg = LogBetaGaussian[area, c2]; nu2 = \
+0.25/(area*c2); xopt = -q3/(2*qe); \n     qmax = q3*xopt + qe*xopt^2 - qc; \
+Association[\"peak\" -> 0.07, \"integrated_area\" -> area, \n      \"C2\" -> \
+c2, \"sigma2\" -> area*c2, \"beta_per_f_sun\" -> betaSun, \"M_solar\" -> \
+10.^(-3), \n      \"beta_per_f\" -> beta, \"beta_limit\" -> 0.01*beta, \
+\"gaussian_f\" -> Exp[bg]/beta, \n      \"max_ng_f\" -> Exp[bg + \
+nu2*(qmax/12)]/beta, \"q3\" -> q3, \"q4_contact\" -> qc, \n      \
+\"q4_exchange\" -> qe, \"q_limit\" -> (12/nu2)*(Log[0.01*beta] - bg), \n      \
+\"maximum_location\" -> {xopt, -1}, \"q_max\" -> qmax, \"nu_th2\" -> nu2, \n  \
+    \"log_beta_gaussian\" -> bg]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FitTemplate[template_List, data_List, \
+covariance_List] := \n  Catch[Module[{precision, fisher, mean, sigma, chol, \
+workingCovariance, covarianceScale}, \n    require[Length[template] == \
+Length[data] && Dimensions[covariance] == \n        {Length[data], \
+Length[data]}, \"Likelihood\", \n      \"Template, data and covariance \
+dimensions do not agree.\"]; \n     require[Length[data] > 0 && \
+MatrixQ[covariance, finiteRealQ], \"Likelihood\", \n      \"Covariance must \
+contain finite real numerical values.\"]; \n     covarianceScale = Max[1., \
+Max[Abs[Flatten[N[covariance]]]]]; \n     \
+require[Max[Abs[Flatten[N[covariance - Transpose[covariance]]]]] <= \n       \
+64*$MachineEpsilon*covarianceScale, \"Likelihood\", \"Covariance must be \
+symmetric.\"]; \n     workingCovariance = (N[covariance] + \
+Transpose[N[covariance]])/2; \n     chol = \
+Quiet[Check[CholeskyDecomposition[workingCovariance], $Failed]]; \n     \
+require[MatrixQ[chol, finiteRealQ] && And @@ Thread[Diagonal[chol] > 0], \
+\"Likelihood\", \n      \"Covariance must be positive definite.\"]; precision \
+= LinearSolve[chol, \n       LinearSolve[Transpose[chol], N[template]]]; \
+fisher = template . precision; \n     require[positiveRealQ[fisher], \
+\"Likelihood\", \"Template Fisher information must be positive.\"]; \n     \
+mean = data . precision/fisher; sigma = 1/Sqrt[fisher]; Association[\"mean\" \
+-> mean, \n      \"sigma\" -> sigma, \"low95\" -> mean - 1.95996398454*sigma, \
+\n      \"high95\" -> mean + 1.95996398454*sigma, \"fisher\" -> fisher, \
+\"delta_chi2\" -> mean^2*fisher]]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EnsureDirectory[path_] := If[DirectoryQ[path], path, \
+CreateDirectory[path, \n    CreateIntermediateDirectories -> True]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"jsonReady[a_Association] := jsonReady /@ a; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"jsonReady[x_List] := jsonReady /@ x; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"jsonReady[x_Complex] := Association[\"real\" -> \
+Re[x], \"imag\" -> Im[x]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"jsonReady[x_DirectedInfinity] := ToString[x, InputForm]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"jsonReady[Indeterminate] := \"Indeterminate\"; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"jsonReady[x_] := x; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"WriteJSON[path_, expr_] := \
+(EnsureDirectory[DirectoryName[path]]; \n   Export[path, jsonReady[expr], \
+\"RawJSON\"]); "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"WriteAssociationCSV[path_, rows_List] := \
+Module[{keys}, EnsureDirectory[DirectoryName[path]]; \n    If[rows === {}, \
+Return[Export[path, {}, \"CSV\"]]]; keys = Keys[First[rows]]; \n    \
+Export[path, Prepend[(Lookup[#1, keys] & ) /@ rows, keys], \"CSV\"]]; "}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"End[]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EndPackage[]; "}]], "Input", 
+   InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]

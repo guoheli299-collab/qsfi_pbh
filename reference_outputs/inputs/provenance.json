@@ -1,0 +1,29 @@
+{
+  "inputs": {
+    "archived_numerical_results.txt": {
+      "sha256": "be30b8dafb0059fab258aa88020be3b8342d85da127906b8bcfdd9b5eff0cef0",
+      "bytes": 3516,
+      "method": "Original production report before c_phi normalization correction; only projected coefficients are used."
+    },
+    "cmb_fit_fine.json": {
+      "sha256": "febc637213ec2de7d64cbf656372d422eb52b9d643b801d2448caeb76b35f25d",
+      "bytes": 1265,
+      "method": "Archived one-template Gaussian amplitude fit with the released Planck PR4 full covariance; not recalculated by the reference workflow."
+    },
+    "cmb_template_fine.json": {
+      "sha256": "2f4645b20af61ec8c84e5e188dda71350dc357eb93ee67ec8658c01908e079a8",
+      "bytes": 15615,
+      "method": "Archived template arrays stored in JSON."
+    }
+  },
+  "cmb_observation_source": {
+    "repository": "https://github.com/oliverphilcox/Binned-Bispectrum-Shape",
+    "data_url": "https://raw.githubusercontent.com/oliverphilcox/Binned-Bispectrum-Shape/main/binned_shape_data.npz",
+    "sha256": "46e301d2989d8ea2e1a6e7cc56c70793825e695294d1ca04fe005fa7a757517e",
+    "included": false,
+    "citation": "Oliver H. E. Philcox, What Shape is the Inflationary Bispectrum?, arXiv:2603.17004 (2026)."
+  },
+  "reference_method": "Exact analytic reweighting of archived QMC coefficients and reuse of the archived fine-resolution CMB fit; not a new cold integration.",
+  "native_code_format": "Mathematica Notebook (.nb) initialization/input cells",
+  "conversion_date": "2026-11-05"
+}

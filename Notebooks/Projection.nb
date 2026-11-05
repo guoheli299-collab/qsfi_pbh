@@ -1,0 +1,1210 @@
+Notebook[{Cell["QSFI\[Dash]PBH | Projection", "Title"], 
+  Cell["Native Mathematica module loaded by QSFIPBH.nb.", "Text"], 
+  Cell["Definitions", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BeginPackage[\"QSFIPBH`\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SobolPoints::usage = \
+\"SobolPoints[d,power,seed,scramble:True] returns 2^power native Sobol points \
+\\\n(d<=6). Scrambling is a native random lower triangular binary matrix plus \
+digital shift; streams use independent scrambling.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProjectionSettings::usage = \
+\"ProjectionSettings[overrides] validates and normalizes the native \
+\\\nfull-momentum projection settings.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MapRadialPoints::usage = \n  \
+\"MapRadialPoints[unitCoordinates,settings] returns {momenta,exact dk/du \
+factors}.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumSample::usage = \
+\"BispectrumSample[unitPoint,bundle,settings] evaluates the raw reduced \
+\\\nthree-dimensional PBH integrand.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TrispectrumSample::usage = \
+\"TrispectrumSample[unitPoint,bundle,settings,stage] evaluates the raw \
+\\\nreduced six-dimensional PBH integrand.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReducedCumulantPrefactors::usage = \n  \
+\"ReducedCumulantPrefactors[settings] returns \
+{threePointPrefactor,fourPointPrefactor,sigma2}.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EstimateStage::usage = \
+\"EstimateStage[bundle,stage,settings,checkpoint:None] runs native adaptive \
+\\\nscrambled Sobol replicates, optionally resuming a native WXF \
+checkpoint.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProjectAllStages::usage = \
+\"ProjectAllStages[bundle,settings,checkpointDirectory:None] computes all \
+\\\nthree cumulant coefficients and propagated errors.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CompareStageEstimates::usage = \
+\"CompareStageEstimates[coarse,refined,controls] tests both \\\nrefinement \
+agreement and sampling precision.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunProduction::usage = \
+\"RunProduction[outputDirectory,overrides] launches all 3 sound-speed by 4 \
+\\\nmass cases. Rejected precision produces provisional files and Failure, \
+never accepted production \\\noutput.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FitCMBTemplate::usage = \
+\"FitCMBTemplate[bundle,data,config] constructs and fits the full cubic QSFI \
+\\\nshape; data contains x,y,data,cov arrays.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunCMBFit::usage = \
+\"RunCMBFit[outputDirectory,data,overrides] builds a new mixed grid and fits \
+the \\\nnative full cubic template using the supplied x,y,data,cov \
+Association (or JSON/WXF filename).\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunExchangeConvergence::usage = \
+\"RunExchangeConvergence[directory,overrides] recomputes native \\\nr_s=3, \
+nu_tilde=.1 exchange estimates under ratio-grid and Sobol refinement and \
+exports their \\\ncomparison.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$RunReporter::usage = \"$RunReporter is None or an \
+optional Function/callable symbol receiving \\\nnative run progress \
+Associations. Use Block to install a reporter; it is never part of \
+\\\nscientific/cache identity. A returned Failure aborts the run.\"; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"If[ !ValueQ[$RunReporter], $RunReporter = None]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Begin[\"`Private`\"]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionFiniteQ[x_] := NumberQ[x] && \
+TrueQ[Abs[N[x]] < Infinity] && TrueQ[Im[N[x]] == 0]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionFailure[tag_, text_, extra_:Association[]] \
+:= \n  Failure[tag, Join[Association[\"MessageTemplate\" -> text], extra]]; "}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$projectionRunContext = Association[]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionReporterQ[reporter_] := Head[reporter] === \
+Function || \n   (Head[reporter] === Symbol && Length[DownValues[reporter]] > \
+0); "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionEmit[event_Association] := Module[{payload, \
+reporter = QSFIPBH`$RunReporter, result, \n    name}, payload = \
+Join[$projectionRunContext, event, \n      Association[\"updated_utc\" -> \
+DateString[TimeZone -> 0]]]; \n    name = Lookup[payload, \"event\", \
+\"progress\"]; Switch[name, \"production_start\", \n     Print[\"[native \
+production] starting \", Lookup[payload, \"total_cases\", 0], \" cases\"], \n \
+    \"case_start\", Print[\"[native case \", Lookup[payload, \
+\"current_case\", 0], \"/\", \n      Lookup[payload, \"total_cases\", 0], \"] \
+r_s=\", Lookup[payload, \"r_s\", None], \", nu_tilde=\", \n      \
+Lookup[payload, \"nu_tilde\", None]], \"grid_start\", \n     Print[\"[native \
+propagator grid] constructing or loading the physical grid\"], \n     \
+\"ratio_table_start\", Print[\"[native ratio table] constructing or loading \
+\", \n      payload[\"ratio_nodes\"], \" nodes\"], \"stage_start\", \
+Print[\"[native stage] \", payload[\"stage\"]], \n     \"replicate_start\", \
+Print[\"[native QMC] \", payload[\"stage\"], \", power=\", \n      \
+payload[\"sobol_power\"], \", replicate \", payload[\"replicate\"], \"/\", \n \
+     payload[\"total_replicates\"]], \"point_block\", Print[\"[native \
+samples] \", payload[\"stage\"], \n      \", replicate \", \
+payload[\"replicate\"], \": \", payload[\"sample_completed\"], \"/\", \n      \
+payload[\"sample_total\"]], \"replicate_complete\", Print[\"[native QMC \
+saved] \", \n      payload[\"stage\"], \", power=\", \
+payload[\"sobol_power\"], \", replicate=\", payload[\"replicate\"], \n      \
+\", relative SE=\", payload[\"relative_standard_error\"]], \"case_saved\", \n \
+    Print[\"[native case saved] \", payload[\"completed_cases\"], \"/\", \
+payload[\"total_cases\"]], \n     \"production_complete\", Print[\"[native \
+production saved] \", Lookup[payload, \"results_file\", \n       \"\"]], \
+\"cmb_start\", Print[\"[native CMB] constructing a new physical grid\"], \
+\"cmb_ratio\", \n     Print[\"[native CMB] ratios \", \
+payload[\"sample_completed\"], \"/\", payload[\"sample_total\"]], \n     \
+\"cmb_complete\", Print[\"[native CMB saved] \", Lookup[payload, \
+\"results_file\", \"\"]], _, Null]; \n    If[reporter =!= None, If[ \
+!projectionReporterQ[reporter], \n       \
+Throw[projectionFailure[\"Reporter\", \n         \"$RunReporter must be None, \
+a Function or a callable symbol.\"], projectionAbort]]; \n      result = \
+reporter[payload]; If[FailureQ[result], Throw[result, projectionAbort]]]; \
+payload]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$projectionStopControls = \
+{\"sobol_power_bispectrum\", \"sobol_power_contact\", \
+\"sobol_power_exchange\", \n   \"sobol_replicates\", \
+\"sobol_min_replicates_four_point\", \"sobol_max_replicates_four_point\", \n  \
+ \"sobol_relative_error_target_bispectrum\", \
+\"sobol_relative_error_target_four_point\", \n   \
+\"sobol_max_power_increment_four_point\"}; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProjectionSettings[overrides_:Association[]] := \
+Module[{s, defaults, positive, counts}, \n   defaults = Association[\"c_phi\" \
+-> 1., \"c_sigma\" -> 1., \"i_epsilon\" -> 0., \n      \"lognormal_delta\" -> \
+0.5, \"k_peak_r\" -> Sqrt[2.], \"lognormal_sigma_range\" -> 5., \n      \
+\"power_area\" -> Sqrt[2.*Pi]*0.5*0.01, \"lambda2_over_h\" -> 0.38, \
+\"ratio_floor\" -> 10^(-5), \n      \"ratio_nodes\" -> 128, \
+\"radial_sampling\" -> \"sqrt_lognormal_importance\", \n      \
+\"sobol_power_bispectrum\" -> 12, \"sobol_power_contact\" -> 12, \
+\"sobol_power_exchange\" -> 12, \n      \"sobol_replicates\" -> 4, \
+\"sobol_min_replicates_four_point\" -> 6, \n      \
+\"sobol_max_replicates_four_point\" -> 12, \
+\"sobol_relative_error_target_bispectrum\" -> 0.01, \n      \
+\"sobol_relative_error_target_four_point\" -> 0.05, \
+\"sobol_max_power_increment_four_point\" -> \n       3, \"sobol_seed\" -> \
+1729]; If[ !AssociationQ[overrides], \n     \
+Return[projectionFailure[\"Settings\", \"Projection settings must be an \
+Association.\"]]]; \n    s = Join[defaults, overrides]; \
+If[KeyExistsQ[overrides, \"full_momentum_sigma_range\"] && \n       \
+!KeyExistsQ[overrides, \"lognormal_sigma_range\"], \
+s[\"lognormal_sigma_range\"] = \n      \
+overrides[\"full_momentum_sigma_range\"]]; If[KeyExistsQ[overrides, \
+\"full_ratio_floor\"] && \n       !KeyExistsQ[overrides, \"ratio_floor\"], \
+s[\"ratio_floor\"] = overrides[\"full_ratio_floor\"]]; \n    \
+If[KeyExistsQ[overrides, \"full_ratio_nodes\"] &&  !KeyExistsQ[overrides, \
+\"ratio_nodes\"], \n     s[\"ratio_nodes\"] = \
+overrides[\"full_ratio_nodes\"]]; If[KeyExistsQ[overrides, \
+\"lambda2_over_H\"], \n     s[\"lambda2_over_h\"] = \
+overrides[\"lambda2_over_H\"]]; \n    If[KeyExistsQ[overrides, \
+\"reference_peak_height\"] &&  !KeyExistsQ[overrides, \"power_area\"], \n     \
+s[\"power_area\"] = \
+Sqrt[2.*Pi]*s[\"lognormal_delta\"]*s[\"reference_peak_height\"]]; \n    \
+positive = {\"c_phi\", \"c_sigma\", \"lognormal_delta\", \"k_peak_r\", \
+\"lognormal_sigma_range\", \n      \"power_area\", \"lambda2_over_h\", \
+\"ratio_floor\", \"sobol_relative_error_target_bispectrum\", \n      \
+\"sobol_relative_error_target_four_point\"}; \n    If[ !AllTrue[Lookup[s, \
+positive], projectionFiniteQ[#1] && #1 > 0 & ] || \n      \
+s[\"lambda2_over_h\"] > 0.8 || s[\"ratio_floor\"] >= 1 || Max[s[\"c_phi\"], \
+s[\"c_sigma\"]] > 1, \n     Return[projectionFailure[\"Settings\", \n       \
+\"Invalid positive settings, sound speeds, ratio floor, or EFT mixing \
+ceiling.\"]]]; \n    counts = {\"ratio_nodes\", \"sobol_power_bispectrum\", \
+\"sobol_power_contact\", \n      \"sobol_power_exchange\", \
+\"sobol_replicates\", \"sobol_min_replicates_four_point\", \n      \
+\"sobol_max_replicates_four_point\"}; \n    If[ !AllTrue[Lookup[s, counts], \
+IntegerQ[#1] && #1 >= 1 & ] || s[\"ratio_nodes\"] < 3 || \n      \
+Min[Lookup[s, {\"sobol_replicates\", \"sobol_min_replicates_four_point\"}]] < \
+2 || \n      s[\"sobol_max_replicates_four_point\"] < \
+s[\"sobol_min_replicates_four_point\"] || \n       \
+!IntegerQ[s[\"sobol_max_power_increment_four_point\"]] || \n      \
+s[\"sobol_max_power_increment_four_point\"] < 0 ||  \
+!IntegerQ[s[\"sobol_seed\"]], \n     Return[projectionFailure[\"Settings\", \
+\"Invalid integer counts or replicate budget.\"]]]; \n    If[ \
+!MemberQ[{\"log_uniform\", \"sqrt_lognormal_importance\"}, \
+s[\"radial_sampling\"]], \n     Return[projectionFailure[\"Settings\", \
+\"Unknown radial sampling mapping.\"]]]; s]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$sobolInitial = {{0, 0, {}}, {1, 0, {1}}, {2, 1, {1, \
+3}}, {3, 1, {1, 3, 1}}, {3, 2, {1, 1, 1}}, \n   {4, 1, {1, 1, 3, 3}}}; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"sobolDirections[d_, bits_] := Table[Module[{s, a, m, \
+v, j, k}, {s, a, m} = $sobolInitial[[dim]]; \n     If[dim == 1, \
+Return[Table[2^(bits - j), {j, bits}], Module]]; v = ConstantArray[0, bits]; \
+\n     Do[v[[j]] = m[[j]]*2^(bits - j), {j, s}]; \n     Do[v[[j]] = \
+BitXor[v[[j - s]], BitShiftRight[v[[j - s]], s]]; \n       Do[If[BitGet[a, s \
+- 1 - k] == 1, v[[j]] = BitXor[v[[j]], v[[j - k]]]], {k, 1, s - 1}], \n      \
+{j, s + 1, bits}]; v], {dim, d}]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"sobolTransform[v_Integer, m_] := FromDigits[Mod[m . \
+IntegerDigits[v, 2, Length[m]], 2], 2]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SobolPoints[d_Integer, power_Integer, seed_Integer, \
+scramble_:True] := \n  Module[{bits = 30, v, shift, matrices, state, out, n, \
+c}, \n   If[d < 1 || d > 6 || power < 1 || power > 24 ||  !MemberQ[{True, \
+False}, scramble], \n     Return[projectionFailure[\"SobolDomain\", \"Sobol \
+supports 1..6 dimensions and powers 1..24.\"]]]; \n    v = sobolDirections[d, \
+bits]; shift = ConstantArray[0, d]; \n    If[TrueQ[scramble], \
+BlockRandom[SeedRandom[seed, Method -> \"MersenneTwister\"]; \n       \
+matrices = Table[Table[Which[j > i, 0, j == i, 1, True, RandomInteger[]], {i, \
+bits}, \n          {j, bits}], {d}]; shift = Table[RandomInteger[{0, 2^bits - \
+1}], {d}]; \n       v = MapThread[Function[{row, m}, (sobolTransform[#1, m] & \
+) /@ row], {v, matrices}]]]; \n    state = shift; out = ConstantArray[0., \
+{2^power, d}]; out[[1]] = N[state/2^bits]; \n    Do[c = 1 + \
+IntegerExponent[n, 2]; state = MapThread[BitXor, {state, v[[All,c]]}]; \n     \
+ out[[n + 1]] = N[state/2^bits], {n, 1, 2^power - 1}]; out]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"SobolPoints[___] := \
+projectionFailure[\"SobolDomain\", \n   \"Sobol dimensions, powers and seeds \
+must be integers.\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"MapRadialPoints[unit_List, settings_Association] := \
+\n  Module[{s = ProjectionSettings[settings], delta, peak, span, k, sigma, \
+zlim, pmin, pspan, z, \n    density}, If[FailureQ[s], Return[s]]; \n    If[ \
+!VectorQ[unit, projectionFiniteQ[#1] && 0 <= #1 <= 1 & ], \n     \
+Return[projectionFailure[\"UnitDomain\", \"Radial coordinates must lie in \
+[0,1].\"]]]; \n    delta = s[\"lognormal_delta\"]; peak = s[\"k_peak_r\"]; \
+If[s[\"radial_sampling\"] == \"log_uniform\", \n     span = \
+2*s[\"lognormal_sigma_range\"]*delta; k = peak*Exp[-span/2 + span*unit]; \n   \
+   Return[{k, span*k}]]; sigma = Sqrt[2.]*delta; zlim = \
+s[\"lognormal_sigma_range\"]/Sqrt[2.]; \n    pmin = (1 + \
+Erf[-zlim/Sqrt[2.]])/2; pspan = Erf[zlim/Sqrt[2.]]; \n    z = \
+Sqrt[2.]*InverseErf[2*(pmin + pspan*unit) - 1]; k = peak*Exp[sigma*z]; \n    \
+density = Exp[-z^2/2]/(Sqrt[2.*Pi]*sigma*pspan); {k, k/density}]; "}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"CompareStageEstimates[coarse_Association, \
+refined_Association, controls_:Association[]] := \n  Module[{c, difference, \
+scale, se, threshold, sampling, consistent, cp, rp}, \n   c = \
+Join[Association[\"relative_tolerance\" -> 0.05, \"sigma_multiplier\" -> 3., \
+\n       \"absolute_floor\" -> 10^(-12)], controls]; If[coarse[\"stage\"] =!= \
+refined[\"stage\"] || \n       !AllTrue[Values[c], projectionFiniteQ[#1] && \
+#1 >= 0 & ], \n     Return[projectionFailure[\"Comparison\", \n       \
+\"Stages must match and tolerances must be finite and nonnegative.\"]]]; \n   \
+ difference = Abs[refined[\"coefficient\"] - coarse[\"coefficient\"]]; \n    \
+scale = Max[Abs[coarse[\"coefficient\"]], Abs[refined[\"coefficient\"]], \
+c[\"absolute_floor\"]]; \n    se = \
+Sqrt[coarse[\"coefficient_standard_error\"]^2 + \
+refined[\"coefficient_standard_error\"]^2]; \n    sampling = \
+Max[c[\"absolute_floor\"], c[\"relative_tolerance\"]*scale]; \n    threshold \
+= Max[sampling, c[\"sigma_multiplier\"]*se]; consistent = difference <= \
+threshold; \n    cp = coarse[\"coefficient_standard_error\"] <= sampling; \n  \
+  rp = refined[\"coefficient_standard_error\"] <= sampling; \
+Association[\"stage\" -> coarse[\"stage\"], \n     \"coarse_coefficient\" -> \
+coarse[\"coefficient\"], \"refined_coefficient\" -> \n      \
+refined[\"coefficient\"], \"absolute_difference\" -> difference, \n     \
+\"relative_difference\" -> If[scale == 0, 0., difference/scale], \n     \
+\"combined_standard_error\" -> se, \"acceptance_threshold\" -> threshold, \n  \
+   \"sampling_precision_threshold\" -> sampling, \
+\"coarse_relative_standard_error\" -> \n      \
+coarse[\"coefficient_standard_error\"]/scale, \
+\"refined_relative_standard_error\" -> \n      \
+refined[\"coefficient_standard_error\"]/scale, \"statistically_consistent\" \
+-> consistent, \n     \"coarse_sampling_precision_accepted\" -> cp, \
+\"refined_sampling_precision_accepted\" -> rp, \n     \
+\"sampling_precision_accepted\" -> cp && rp, \"accepted\" -> consistent && cp \
+&& rp]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionLegWeight[momenta_List, s_] := \
+Module[{delta = s[\"lognormal_delta\"], logs, logWeight}, \n   If[ \
+!VectorQ[momenta, projectionFiniteQ[#1] && #1 > 0 & ], Return[0.]]; \n    \
+logs = Log[s[\"power_area\"]] + (Max[#1, Log[2.2250738585072014*^-308]] & ) \
+/@ \n       (-(Log[momenta/s[\"k_peak_r\"]]/delta)^2/2 - \
+Log[Sqrt[2.*Pi]*delta]); \n    logWeight = Total[logs]/2 - \
+Total[momenta^2]/2; If[logWeight < Log[2.2250738585072014*^-308], \n     0., \
+Exp[logWeight]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionUnitQ[p_, d_] := ListQ[p] && Length[p] == d \
+&& \n   VectorQ[p, projectionFiniteQ[#1] && Inequality[0, LessEqual, #1, \
+Less, 1] & ]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BispectrumSample[point_List, bundle_Association, \
+settings_Association] := \n  Module[{mapped, k1, k2, k3sq, k3, jac, spectral, \
+shape}, \n   If[ !projectionUnitQ[point, 3], \
+Return[projectionFailure[\"UnitDomain\", \n       \"Bispectrum sample \
+requires three coordinates in [0,1).\"]]]; \n    mapped = \
+MapRadialPoints[Take[point, 2], settings]; If[FailureQ[mapped], \
+Return[mapped]]; \n    {k1, k2} = mapped[[1]]; jac = 2*Times @@ mapped[[2]]; \
+\n    k3sq = k1^2 + k2^2 + 2*k1*k2*(-1 + 2*point[[3]]); If[k3sq <= 0, \
+Return[0.]]; k3 = Sqrt[k3sq]; \n    spectral = projectionLegWeight[{k1, k2, \
+k3}, settings]; If[spectral == 0, Return[0.]]; \n    shape = \
+QSFIPBH`BispectrumShape[bundle, k1, k2, k3]; If[FailureQ[shape], \
+Return[shape]]; \n    jac*k1^2*k2^2*spectral*shape]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"TrispectrumSample[point_List, bundle_Association, \
+settings_Association, stage_String] := \n  Module[{mapped, momenta, vectors, \
+jac, spectral, shape}, \n   If[ !projectionUnitQ[point, 6] ||  \
+!MemberQ[{\"contact\", \"exchange\"}, stage], \n     \
+Return[projectionFailure[\"UnitDomain\", \n       \"Trispectrum sample \
+requires six coordinates and a contact/exchange stage.\"]]]; \n    mapped = \
+MapRadialPoints[Take[point, 3], settings]; If[FailureQ[mapped], \
+Return[mapped]]; \n    vectors = QSFIPBH`FourMomentumVectors[Sequence @@ \
+mapped[[1]], -1 + 2*point[[4]], \n      -1 + 2*point[[5]], 2*Pi*point[[6]]]; \
+If[FailureQ[vectors], Return[vectors]]; \n    momenta = Norm /@ vectors; jac \
+= 8*Pi*Times @@ mapped[[2]]; \n    spectral = projectionLegWeight[momenta, \
+settings]; If[spectral == 0, Return[0.]]; \n    shape = If[stage == \
+\"contact\", QSFIPBH`ContactShape[bundle, momenta], \n      \
+QSFIPBH`ExchangeShape[bundle, vectors]]; If[FailureQ[shape], Return[shape]]; \
+\n    jac*(Times @@ Take[momenta, \
+3]/Last[momenta])*Total[momenta]^3*spectral*shape]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ReducedCumulantPrefactors[settings_Association] := \n \
+ Module[{sigma2, mix = settings[\"lambda2_over_h\"]}, \n   sigma2 = \
+settings[\"power_area\"]*QSFIPBH`DensityVarianceResponse[settings[\"lognormal\
+_delta\"], \n       settings[\"k_peak_r\"]]; If[ !projectionFiniteQ[sigma2] \
+|| sigma2 <= 0, \n     Return[projectionFailure[\"Variance\", \"Density \
+variance must be positive and finite.\"]]]; \n    \
+{2*(4./9)^3*(mix^3/sigma2^2), (4./9)^4*(mix^4/(Pi*sigma2^3)), sigma2}]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionStatistics[values_List] := Module[{mean, \
+se}, \n   If[values == {}, Return[{Indeterminate, Infinity, Infinity}]]; mean \
+= N[Mean[values]]; \n    If[Length[values] < 2, Return[{mean, Infinity, \
+Infinity}]]; \n    se = N[StandardDeviation[values]/Sqrt[Length[values]]]; \n \
+   {mean, se, Which[se == 0, 0., mean == 0, Infinity, True, Abs[se/mean]]}]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionEvaluatorIdentity[bundle_Association] := \
+Module[{keys, scientific}, \n   keys = {\"z_plus\", \"ratios\", \"i_plus\", \
+\"h1_plus\", \"h2c_plus\", \"nutilde\", \"c_phi\", \"c_sigma\"}; \n    If[ \
+!AllTrue[keys, KeyExistsQ[bundle, #1] & ], \
+Return[projectionFailure[\"EvaluatorIdentity\", \n       \"Ratio bundle lacks \
+scientific arrays or physical identity.\"]]]; \n    scientific = \
+KeySort[KeyTake[bundle, Append[keys, \"i_epsilon\"]]]; \n    \
+Association[\"implementation\" -> \"native_wl_full_momentum_v1\", \n     \
+\"array_hash_algorithm\" -> \"Wolfram-Expression-SHA256\", \
+\"scientific_array_sha256\" -> \n      Hash[scientific, \"SHA256\", \
+\"HexString\"]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionScientificSettings[s_] := KeyTake[s, \
+{\"c_phi\", \"c_sigma\", \"i_epsilon\", \"lognormal_delta\", \n    \
+\"k_peak_r\", \"lognormal_sigma_range\", \"power_area\", \"lambda2_over_h\", \
+\"ratio_floor\", \n    \"ratio_nodes\", \"radial_sampling\", \"sobol_seed\", \
+\"wick_pivot\", \"wick_depth\", \"tail_depth\", \n    \"real_step\", \
+\"vertical_step\", \"xmin\", \"nlog\", \"dps\"}]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionCheckpointIdentity[s_] := \
+Hash[KeySort[projectionScientificSettings[s]], \"SHA256\", \n   \
+\"HexString\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionCheckpointPayload[stage_, s_, evaluator_, \
+levels_] := \n  Association[\"format_version\" -> \
+\"native_wl_full_momentum_stage_v1\", \"stage\" -> stage, \n   \
+\"integration_identity_sha256\" -> projectionCheckpointIdentity[s], \n   \
+\"integration_settings\" -> projectionScientificSettings[s], \
+\"evaluator_identity\" -> evaluator, \n   \"levels\" -> levels]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionWriteWXF[path_String, payload_] := \
+Module[{dir = DirectoryName[path], temporary, result}, \n   If[ \
+!DirectoryQ[dir], CreateDirectory[dir, CreateIntermediateDirectories -> \
+True]]; \n    temporary = FileNameJoin[{dir, StringJoin[\".\", \
+FileNameTake[path], \".\", CreateUUID[], \n        \".tmp\"]}]; result = \
+Quiet[Check[Export[temporary, payload, \"WXF\"]; \n        \
+RenameFile[temporary, path, OverwriteTarget -> True]; path, $Failed]]; \n    \
+If[FileExistsQ[temporary], DeleteFile[temporary]]; If[result === $Failed, \n  \
+   projectionFailure[\"CheckpointWrite\", \"Could not atomically write native \
+WXF output.\", \n      Association[\"path\" -> path]], result]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionLoadCheckpoint[path_, stage_, s_, \
+evaluator_] := \n  Module[{payload, levels, power, record, valid = True}, \n  \
+ If[path === None ||  !FileExistsQ[path], Return[Association[]]]; \n    \
+payload = Quiet[Check[Import[path, \"WXF\"], $Failed]]; \n    If[ \
+!AssociationQ[payload] || Lookup[payload, \"format_version\", None] =!= \n    \
+   \"native_wl_full_momentum_stage_v1\" || Lookup[payload, \"stage\", None] \
+=!= stage || \n      Lookup[payload, \"integration_identity_sha256\", None] \
+=!= projectionCheckpointIdentity[s] || \n      Lookup[payload, \
+\"evaluator_identity\", None] =!= evaluator, \n     \
+Return[projectionFailure[\"CheckpointIdentity\", \n       \"Native checkpoint \
+does not match stage, physics, sampler or evaluator scientific arrays.\", \n  \
+     Association[\"path\" -> path]]]]; levels = Lookup[payload, \"levels\", \
+None]; \n    If[ !AssociationQ[levels], \
+Return[projectionFailure[\"CheckpointData\", \n       \"Invalid native \
+checkpoint levels.\"]]]; KeyValueMap[Function[{key, value}, \n      power = \
+Quiet[Check[FromDigits[key], $Failed]]; record = value; \n       If[ \
+!IntegerQ[power] || power < 1 ||  !AssociationQ[record] || \n          \
+!ListQ[Lookup[record, \"replicate_integrals\", None]] || \n          \
+!ListQ[Lookup[record, \"excluded_counts\", None]], valid = False, \n        \
+If[Length[record[\"replicate_integrals\"]] != \
+Length[record[\"excluded_counts\"]] || \n           \
+!VectorQ[record[\"replicate_integrals\"], projectionFiniteQ] || \n           \
+!AllTrue[record[\"excluded_counts\"], IntegerQ[#1] && 0 <= #1 <= 2^power & ], \
+\n         valid = False]]], levels]; If[valid, levels, \
+projectionFailure[\"CheckpointData\", \n      \"Invalid or nonfinite native \
+checkpoint replicate data.\"]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionPointBlock[points_, bundle_, stage_, s_, \
+replicate_, firstIndex_] := \n  Module[{sum = 0., excluded = 0, value, index, \
+lastEmit = 0., now, \n    total = firstIndex + Length[points]}, \n   Do[value \
+= If[stage == \"bispectrum\", BispectrumSample[points[[index]], bundle, s], \
+\n        TrispectrumSample[points[[index]], bundle, s, stage]]; \n      \
+If[MatchQ[value, Failure[\"RatioDomain\", _Association]], value = 0.; \
+excluded++]; \n      If[FailureQ[value], Throw[value, projectionAbort]]; If[ \
+!projectionFiniteQ[value], \n       \
+Throw[projectionFailure[\"NonFiniteIntegrand\", \"Non-finite native QMC \
+integrand.\", \n         Association[\"stage\" -> stage, \"replicate\" -> \
+replicate, \n          \"sample\" -> firstIndex + index - 1]], \
+projectionAbort]]; sum += value; \n      If[index == 1 || index == \
+Length[points] || (Mod[index, 128] == 0 && \n         (now = AbsoluteTime[]) \
+- lastEmit >= 2.), lastEmit = AbsoluteTime[]; \n        \
+projectionEmit[Association[\"phase\" -> \"native_integration\", \"event\" -> \
+\"point_block\", \n          \"stage\" -> stage, \"sobol_power\" -> \
+Round[Log[2, total]], \"replicate\" -> replicate + 1, \n          \
+\"sample_completed\" -> firstIndex + index, \"sample_total\" -> total, \n     \
+     \"excluded_ratio_samples_in_block\" -> excluded]]], {index, \
+Length[points]}]; \n    {sum/Length[points], excluded}]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EstimateStage[bundle_Association, stage_String, \
+settings_Association, checkpoint_:None] := \n  Catch[Module[{s = \
+ProjectionSettings[settings], identity, levels, initial, maximum, minReps, \n \
+    maxReps, target, power, key, record, values, counts, stats, attempted = \
+{}, history = {}, \n     finalPower, accepted = False, replicate, previous, \
+points, block, prefix, write, prefactors, \n     prefactor, excluded, total, \
+stop, estimate}, If[FailureQ[s], Throw[s, projectionAbort]]; \n     If[ \
+!MemberQ[{\"bispectrum\", \"contact\", \"exchange\"}, stage], \n      \
+Throw[projectionFailure[\"Stage\", \"Unknown momentum projection stage.\"], \
+projectionAbort]]; \n     If[checkpoint =!= None &&  !StringQ[checkpoint], \
+Throw[projectionFailure[\"CheckpointPath\", \n        \"Checkpoint path must \
+be a filename or None.\"], projectionAbort]]; \n     identity = \
+projectionEvaluatorIdentity[bundle]; If[FailureQ[identity], \n      \
+Throw[identity, projectionAbort]]; If[ !AllTrue[{\"c_phi\", \"c_sigma\", \
+\"i_epsilon\"}, \n        Function[key,  !KeyExistsQ[bundle, key] || \
+(projectionFiniteQ[bundle[key]] && \n           Abs[bundle[key] - s[key]] <= \
+Max[1., Abs[s[key]]]/10^12)]], \n      \
+Throw[projectionFailure[\"SoundSpeedMismatch\", \n        \"Projection \
+settings and the evaluator must describe the same sound speeds and \
+regulator.\"]\\\n, projectionAbort]]; levels = \
+projectionLoadCheckpoint[checkpoint, stage, s, identity]; \n     \
+If[FailureQ[levels], Throw[levels, projectionAbort]]; \n     initial = \
+s[StringJoin[\"sobol_power_\", stage]]; \n     maximum = initial + If[stage \
+== \"bispectrum\", 0, s[\"sobol_max_power_increment_four_point\"]]; \n     \
+minReps = If[stage == \"bispectrum\", s[\"sobol_replicates\"], \n       \
+s[\"sobol_min_replicates_four_point\"]]; maxReps = If[stage == \
+\"bispectrum\", \n       s[\"sobol_replicates\"], \
+s[\"sobol_max_replicates_four_point\"]]; \n     target = s[If[stage == \
+\"bispectrum\", \"sobol_relative_error_target_bispectrum\", \n        \
+\"sobol_relative_error_target_four_point\"]]; projectionEmit[\n      \
+Association[\"phase\" -> \"native_integration\", \"event\" -> \
+\"stage_start\", \"stage\" -> stage, \n       \"sobol_power\" -> initial, \
+\"maximum_sobol_power\" -> maximum, \"minimum_replicates\" -> minReps, \n     \
+  \"total_replicates\" -> maxReps, \"relative_error_target\" -> target]]; \n  \
+   Do[AppendTo[attempted, power]; key = ToString[power]; \n       record = \
+Lookup[levels, key, Association[\"replicate_integrals\" -> {}, \n          \
+\"excluded_counts\" -> {}]]; values = record[\"replicate_integrals\"]; \n     \
+  counts = record[\"excluded_counts\"]; stats = projectionStatistics[values]; \
+\n       projectionEmit[Association[\"phase\" -> \"native_integration\", \
+\"event\" -> \"power_start\", \n         \"stage\" -> stage, \"sobol_power\" \
+-> power, \"completed_replicates\" -> Length[values], \n         \
+\"total_replicates\" -> maxReps, \"sample_total\" -> 2^power]]; \n       \
+While[Length[values] < minReps || (stats[[3]] > target && Length[values] < \
+maxReps), \n        replicate = Length[values]; previous = Lookup[levels, \
+ToString[power - 1], \n           Association[\"replicate_integrals\" -> {}, \
+\"excluded_counts\" -> {}]]; \n         projectionEmit[Association[\"phase\" \
+-> \"native_integration\", \"event\" -> \"replicate_start\", \n           \
+\"stage\" -> stage, \"sobol_power\" -> power, \"replicate\" -> replicate + 1, \
+\n           \"total_replicates\" -> maxReps, \"sample_completed\" -> \n      \
+      If[replicate < Length[previous[\"replicate_integrals\"]], 2^(power - \
+1), 0], \n           \"sample_total\" -> 2^power]]; points = \
+SobolPoints[If[stage == \"bispectrum\", 3, 6], \n           power, \
+s[\"sobol_seed\"] + 104729*replicate]; If[FailureQ[points], \n          \
+Throw[points, projectionAbort]]; If[replicate < \
+Length[previous[\"replicate_integrals\"]], \n          prefix = 2^(power - \
+1); block = projectionPointBlock[Drop[points, prefix], bundle, stage, \n      \
+       s, replicate, prefix]; block = \
+{0.5*(previous[\"replicate_integrals\"][[\n                replicate + 1]] + \
+block[[1]]), previous[\"excluded_counts\"][[replicate + 1]] + \n              \
+block[[2]]}, block = projectionPointBlock[points, bundle, stage, s, \
+replicate, 0]]; \n         AppendTo[values, block[[1]]]; AppendTo[counts, \
+block[[2]]]; \n         stats = projectionStatistics[values]; levels[key] = \
+Association[\"replicate_integrals\" -> \n            values, \
+\"excluded_counts\" -> counts]; If[checkpoint =!= None, \n          write = \
+projectionWriteWXF[checkpoint, projectionCheckpointPayload[stage, s, \
+identity, \n              levels]]; If[FailureQ[write], Throw[write, \
+projectionAbort]]; \n           projectionEmit[Association[\"phase\" -> \
+\"native_integration\", \n             \"event\" -> \"checkpoint_saved\", \
+\"stage\" -> stage, \"sobol_power\" -> power, \n             \"replicate\" -> \
+replicate + 1, \"sample_completed\" -> 2^power, \"sample_total\" -> \n        \
+      2^power, \"checkpoint\" -> checkpoint]]]; projectionEmit[\n          \
+Association[\"phase\" -> \"native_integration\", \"event\" -> \
+\"replicate_complete\", \n           \"stage\" -> stage, \"sobol_power\" -> \
+power, \"replicate\" -> replicate + 1, \n           \"total_replicates\" -> \
+maxReps, \"sample_completed\" -> 2^power, \"sample_total\" -> 2^power, \n     \
+      \"relative_standard_error\" -> stats[[3]]]]]; levels[key] = \n        \
+Association[\"replicate_integrals\" -> values, \"excluded_counts\" -> \
+counts]; \n       stats = projectionStatistics[values]; accepted = \
+TrueQ[stats[[3]] <= target]; \n       AppendTo[history, \
+Association[\"sobol_power\" -> power, \"samples_per_replicate\" -> 2^power, \
+\n         \"completed_replicates\" -> Length[values], \
+\"relative_standard_error\" -> stats[[3]], \n         \"precision_accepted\" \
+-> accepted]]; finalPower = power; \n       If[stage == \"bispectrum\" || \
+accepted, Break[]], {power, initial, maximum}]; \n     prefactors = \
+ReducedCumulantPrefactors[s]; If[FailureQ[prefactors], \n      \
+Throw[prefactors, projectionAbort]]; prefactor = prefactors[[If[stage == \
+\"bispectrum\", 1, \n        2]]]; excluded = Total[counts]; total = \
+2^finalPower*Length[values]; \n     stop = Which[stage == \"bispectrum\", \
+\"fixed_budget\", accepted, \"target_met\", True, \n       \
+\"maximum_power_reached\"]; estimate = Association[\"stage\" -> stage, \n     \
+  \"raw_integral\" -> stats[[1]], \"raw_standard_error\" -> stats[[2]], \n    \
+   \"coefficient\" -> prefactor*stats[[1]], \"coefficient_standard_error\" -> \
+\n        Abs[prefactor]*stats[[2]], \"samples_per_replicate\" -> \
+2^finalPower, \n       \"completed_replicates\" -> Length[values], \
+\"sobol_power_used\" -> finalPower, \n       \"relative_standard_error\" -> \
+stats[[3]], \"relative_error_target\" -> target, \n       \
+\"precision_accepted\" -> accepted, \"stop_reason\" -> stop, \
+\"attempted_sobol_powers\" -> \n        attempted, \"sampling_history\" -> \
+history, \"excluded_ratio_samples\" -> excluded, \n       \
+\"excluded_ratio_fraction\" -> N[excluded/total], \"replicate_integrals\" -> \
+values]; \n     projectionEmit[Association[\"phase\" -> \
+\"native_integration\", \"event\" -> \"stage_complete\", \n       \"stage\" \
+-> stage, \"sobol_power\" -> finalPower, \"completed_replicates\" -> \
+Length[values], \n       \"sample_completed\" -> total, \"sample_total\" -> \
+total, \"relative_standard_error\" -> \n        stats[[3]], \
+\"precision_accepted\" -> accepted]]; estimate], projectionAbort]; "}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ProjectAllStages[bundle_Association, \
+settings_Association, checkpointDirectory_:None] := \n  Catch[Module[{s = \
+ProjectionSettings[settings], stages = Association[], record, accepted, \n    \
+ prefactors, result, cubic, quartic}, If[FailureQ[s], Throw[s, \
+projectionAbort]]; \n     Do[record = EstimateStage[bundle, stage, s, \
+If[checkpointDirectory === None, None, \n          \
+FileNameJoin[{checkpointDirectory, StringJoin[stage, \".wxf\"]}]]]; \n       \
+If[FailureQ[record], Throw[record, projectionAbort]]; stages[stage] = record, \
+\n      {stage, {\"bispectrum\", \"contact\", \"exchange\"}}]; \n     \
+accepted = AllTrue[Values[stages], TrueQ[#1[\"precision_accepted\"]] & ]; \n  \
+   prefactors = ReducedCumulantPrefactors[s]; If[FailureQ[prefactors], \n     \
+ Throw[prefactors, projectionAbort]]; \n     result = \
+Association[\"projection_method\" -> \"native_full_momentum_qmc\", \n       \
+\"sampler\" -> \"Sobol, native LMS plus digital shift, 30 bits\", \n       \
+\"random_stream_compatibility\" -> \"Native Wolfram seeds; not \
+scrambled sampling\", \n       \"nutilde\" -> bundle[\"nutilde\"], \
+\"c_phi\" -> s[\"c_phi\"], \"c_sigma\" -> s[\"c_sigma\"], \n       \"ratio\" \
+-> s[\"c_phi\"]/s[\"c_sigma\"], \"shape_equations\" -> \n        \
+Association[\"bispectrum\" -> \"arXiv:1803.04412 Eq. (20)\", \
+\"contact_trispectrum\" -> \n          \"Eqs. (30)-(31)\", \
+\"exchange_trispectrum\" -> \"Eqs. (29)-(32), s+t+u\"], \n       \
+\"finite_peak_extension\" -> \n        \"sqrt(product of area-normalized \
+physical lognormal power on external legs)\", \n       \"sigma2\" -> \
+prefactors[[3]], \"sampling_precision_accepted\" -> accepted, \n       \
+\"numerical_status\" -> If[accepted, \"sampling_target_met\", \
+\"provisional_sampling_error\"], \n       \"S3_per_lambda3_over_H\" -> \
+stages[\"bispectrum\"][\"coefficient\"], \n       \
+\"S3_per_lambda3_over_H_standard_error\" -> stages[\"bispectrum\"][\n         \
+\"coefficient_standard_error\"], \"S4_per_lambda4_contact\" -> \n        \
+stages[\"contact\"][\"coefficient\"], \
+\"S4_per_lambda4_contact_standard_error\" -> \n        \
+stages[\"contact\"][\"coefficient_standard_error\"], \n       \
+\"S4_per_lambda3_over_H_squared_exchange\" -> \
+stages[\"exchange\"][\"coefficient\"], \n       \
+\"S4_per_lambda3_over_H_squared_exchange_standard_error\" -> \
+stages[\"exchange\"][\n         \"coefficient_standard_error\"], \
+\"stage_estimates\" -> stages, \"integration_settings\" -> s]; \n     cubic = \
+Sqrt[s[\"power_area\"]]/s[\"lambda2_over_h\"]^3; \n     quartic = \
+s[\"power_area\"]/s[\"lambda2_over_h\"]^4; \n     Join[result, \
+Association[\"C3_hat\" -> cubic*result[\"S3_per_lambda3_over_H\"], \n       \
+\"C3_hat_standard_error\" -> \
+cubic*result[\"S3_per_lambda3_over_H_standard_error\"], \n       \
+\"C4_contact_hat\" -> quartic*result[\"S4_per_lambda4_contact\"], \n       \
+\"C4_contact_hat_standard_error\" -> \
+quartic*result[\"S4_per_lambda4_contact_standard_error\"], \n       \
+\"C4_exchange_hat\" -> \
+quartic*result[\"S4_per_lambda3_over_H_squared_exchange\"], \n       \
+\"C4_exchange_hat_standard_error\" -> \n        \
+quartic*result[\"S4_per_lambda3_over_H_squared_exchange_standard_error\"]]]], \
+\n   projectionAbort]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"projectionHash[x_] := Hash[x, \"SHA256\", \"HexString\"]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionCache[path_String, identity_Association, \
+builder_] := \n  Module[{stored, payload, result}, \n   If[FileExistsQ[path], \
+stored = Quiet[Check[Import[path, \"WXF\"], $Failed]]; \n      If[ \
+!AssociationQ[stored] || Lookup[stored, \"format_version\", None] =!= \n      \
+   \"native_wl_scientific_cache_v1\" || Lookup[stored, \"identity\", None] \
+=!= identity, \n       Return[projectionFailure[\"CacheIdentity\", \
+\"Scientific cache has incompatible identity.\", \n         \
+Association[\"path\" -> path]]]]; payload = Lookup[stored, \"payload\", \
+None]; \n      If[ !AssociationQ[payload] || Lookup[stored, \
+\"payload_sha256\", None] =!= \n         projectionHash[payload], \
+Return[projectionFailure[\"CacheIntegrity\", \n         \"Scientific cache \
+payload hash does not match.\", Association[\"path\" -> path]]]]; \n      \
+Return[payload]]; payload = builder[]; If[FailureQ[payload], \
+Return[payload]]; \n    result = projectionWriteWXF[path, \
+Association[\"format_version\" -> \n        \
+\"native_wl_scientific_cache_v1\", \"identity\" -> identity, \
+\"payload_sha256\" -> \n        projectionHash[payload], \"payload\" -> \
+payload]]; If[FailureQ[result], result, payload]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionGridIdentity[nu_, s_] := \
+Association[\"formula_version\" -> \n    \
+\"full_momentum_sound_speed_v3_cphi_inverse_cube\", \"implementation\" -> \
+\"native_wl_grid_v1\", \n   \"nu_tilde\" -> N[nu], \"settings\" -> \
+KeySort[KeyTake[s, {\"c_phi\", \"c_sigma\", \"i_epsilon\", \n       \
+\"wick_pivot\", \"wick_depth\", \"tail_depth\", \"real_step\", \
+\"vertical_step\", \"xmin\", \"nlog\", \n       \"dps\"}]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionNormalizedConfig[overrides_Association] := \
+\n  Module[{c = QSFIPBH`ProductionConfig[overrides]}, If[FailureQ[c], \
+Return[c]]; \n    Do[If[KeyExistsQ[overrides, pair[[1]]] &&  \
+!KeyExistsQ[overrides, pair[[2]]], \n       c[pair[[2]]] = \
+overrides[pair[[1]]]]; c[pair[[1]]] = c[pair[[2]]], \n     {pair, \
+{{\"full_momentum_sigma_range\", \"lognormal_sigma_range\"}, \n       \
+{\"full_ratio_floor\", \"ratio_floor\"}, {\"full_ratio_nodes\", \
+\"ratio_nodes\"}}}]; c]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionRatioLabel[r_] := \
+StringReplace[ToString[N[r], InputForm], \n   {\".\" -> \"p\", \"-\" -> \
+\"m\", \" \" -> \"\"}]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionSoundSpeed[r_] := Which[Abs[r - 0.3] < \
+10^(-12), Association[\"c_phi\" -> 0.3, \n    \"c_sigma\" -> 1.], Abs[r - 1.] \
+< 10^(-12), Association[\"c_phi\" -> 1., \"c_sigma\" -> 1.], \n   Abs[r - 3.] \
+< 10^(-12), Association[\"c_phi\" -> 1., \"c_sigma\" -> 1./3], True, \n   \
+projectionFailure[\"SoundSpeedCase\", \"Supported production sound-speed \
+ratios are .3,1,3.\"]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionCoreFailure[x_] := FirstCase[x, f_Failure \
+:> f, None, Infinity]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionRequiredRatio[q_, c_] := Module[{dc = \
+c[\"delta_c\"], arg, vg}, \n   If[ !projectionFiniteQ[q] || q > \
+c[\"qng_max\"] || q > 3/dc, Return[Indeterminate]]; \n    If[Abs[1 - \
+dc*(q/3)] < 10^(-15), arg = \
+c[\"gamma_collapse\"]^2/(2*Pi*c[\"target_beta\"]^2); \n      vg = \
+ProductLog[arg]; Return[N[vg/arg]]]; QSFIPBH`RequiredPowerRatio[q, \
+c[\"target_beta\"], \n     c[\"gamma_collapse\"], dc]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionScanChunk[row_, config_, metadata_] := \n  \
+Module[{l3, l4, area, c2, mix, s3, sc, se, s4, q, e3, ec, ee, e4, valid, \
+logRatio, ratio}, \n   l3 = N[Subdivide[config[\"lambda3_min\"], \
+config[\"lambda3_max\"], config[\"lambda3_points\"] - 1]]; \n    l4 = \
+N[Subdivide[config[\"lambda4_min\"], config[\"lambda4_max\"], \
+config[\"lambda4_points\"] - 1]]; \n    area = \
+QSFIPBH`AreaFromPeakHeight[config[\"reference_peak_height\"], \
+config[\"lognormal_delta\"]]; \n    c2 = \
+QSFIPBH`DensityVarianceResponse[config[\"lognormal_delta\"], \
+config[\"k_peak_r\"]]; \n    mix = config[\"lambda2_over_h\"]; s3 = \
+row[\"C3_hat\"]*mix^3*(l3/Sqrt[area]); \n    sc = \
+row[\"C4_contact_hat\"]*mix^4*(l4/area); se = \
+row[\"C4_exchange_hat\"]*mix^4*(l3^2/area); \n    s4 = Outer[Plus, sc, se]; q \
+= (s3 + config[\"delta_c\"]*(#1/4) & ) /@ s4; \n    e3 = \
+row[\"C3_hat_standard_error\"]*mix^3*(Abs[l3]/Sqrt[area]); \n    ec = \
+row[\"C4_contact_hat_standard_error\"]*mix^4*(Abs[l4]/area); \n    ee = \
+row[\"C4_exchange_hat_standard_error\"]*mix^4*(l3^2/area); \n    e4 = \
+Sqrt[Outer[Plus, ec^2, ee^2]]; \n    valid = Map[projectionFiniteQ[#1] && #1 \
+<= config[\"qng_max\"] & , q, {2}]; \n    logRatio = \
+Map[If[projectionFiniteQ[#1] && #1 <= config[\"qng_max\"], \n        \
+config[\"delta_c\"]^3*(#1/(6*area*c2*Log[10.])), Indeterminate] & , q, {2}]; \
+\n    ratio = Map[projectionRequiredRatio[#1, config] & , q, {2}]; \n    \
+Association[\"format_version\" -> \"native_wl_coupling_scan_chunk_v1\", \n    \
+ \"metadata\" -> Join[metadata, Association[\"r_s\" -> row[\"r_s\"], \
+\"nu_tilde\" -> row[\"nu_tilde\"], \n        \"array_axis_order\" -> \
+{\"lambda4\", \"lambda3_over_H\"}, \"power_normalization\" -> \n         \
+\"area_in_dlnk\", \"amplitude_scan_prescription\" -> \
+\"fixed_reduced_nonlinearity_parameters\", \n        \"qng_cut_definition\" \
+-> \"Q_NG <= qng_max (one-sided)\", \n        \
+\"fixed_cumulants_during_peak_height_inversion\" -> True, \
+\"reference_power_area\" -> area, \n        \"variance_response\" -> c2]], \
+\"lambda3_over_H\" -> l3, \"lambda4\" -> l4, \n     \"S3\" -> \
+ConstantArray[s3, Length[l4]], \"S3_standard_error\" -> ConstantArray[e3, \
+Length[l4]], \n     \"S4\" -> s4, \"S4_standard_error\" -> e4, \"Q_NG\" -> q, \
+\"valid_QNG\" -> valid, \n     \"log10_beta_ratio\" -> logRatio, \
+\"Pzeta_NG_over_Pzeta_G\" -> ratio]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$projectionCoefficientKeys = {\"r_s\", \"nu_tilde\", \
+\"c_phi\", \"c_sigma\", \"C3_hat\", \"C4_contact_hat\", \n   \
+\"C4_exchange_hat\", \"C3_hat_standard_error\", \
+\"C4_contact_hat_standard_error\", \n   \"C4_exchange_hat_standard_error\", \
+\"sampling_precision_accepted\"}; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionChecked[result_] := If[FailureQ[result], \
+Throw[result, projectionAbort], result]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionWriteJSON[path_String, payload_Association] \
+:= Module[{temporary, result, readback}, \n   \
+QSFIPBH`EnsureDirectory[DirectoryName[path]]; temporary = StringJoin[path, \
+\".\", CreateUUID[], \n      \".tmp\"]; result = \
+Quiet[Check[QSFIPBH`WriteJSON[temporary, payload], $Failed]]; \n    \
+If[StringQ[result] && FileExistsQ[temporary], \n     readback = \
+Quiet[Check[Import[temporary, \"RawJSON\"], $Failed]], readback = $Failed]; \
+\n    If[ !AssociationQ[readback], If[FileExistsQ[temporary], \
+DeleteFile[temporary]]; \n      Return[projectionFailure[\"ResultWrite\", \
+\"Could not write/read native JSON metadata.\", \n        \
+Association[\"path\" -> path]]]]; \n    result = \
+Quiet[Check[RenameFile[temporary, path, OverwriteTarget -> True], $Failed]]; \
+\n    If[FileExistsQ[temporary], DeleteFile[temporary]]; If[result === \
+$Failed, \n     projectionFailure[\"ResultWrite\", \"Could not atomically \
+replace JSON metadata.\", \n      Association[\"path\" -> path]], path]]; "}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionWriteCoefficientCSV[path_String, rows_List] \
+:= Module[{temporary, result, readback}, \n   \
+QSFIPBH`EnsureDirectory[DirectoryName[path]]; temporary = StringJoin[path, \
+\".\", CreateUUID[], \n      \".tmp\"]; result = \
+Quiet[Check[Export[temporary, \n        Prepend[(Lookup[#1, \
+$projectionCoefficientKeys] & ) /@ rows, $projectionCoefficientKeys], \n      \
+  \"CSV\"], $Failed]]; readback = If[StringQ[result] && \
+FileExistsQ[temporary], \n      Quiet[Check[Import[temporary, \"CSV\"], \
+$Failed]], $Failed]; \n    If[ !ListQ[readback] || Length[readback] != \
+Length[rows] + 1, \n     If[FileExistsQ[temporary], DeleteFile[temporary]]; \
+\n      Return[projectionFailure[\"ResultWrite\", \"Could not write/read \
+partial coefficient CSV.\", \n        Association[\"path\" -> path]]]]; \n    \
+result = Quiet[Check[RenameFile[temporary, path, OverwriteTarget -> True], \
+$Failed]]; \n    If[FileExistsQ[temporary], DeleteFile[temporary]]; If[result \
+=== $Failed, \n     projectionFailure[\"ResultWrite\", \"Could not atomically \
+replace coefficient CSV.\", \n      Association[\"path\" -> path]], path]]; "}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionSaveReloadable[path_String, \
+payload_Association] := \n  Module[{result, readback}, result = \
+projectionWriteWXF[path, payload]; \n    If[FailureQ[result], \
+Return[result]]; readback = Quiet[Check[Import[path, \"WXF\"], $Failed]]; \n  \
+  If[ !AssociationQ[readback] || projectionHash[readback] =!= \
+projectionHash[payload], \n     projectionFailure[\"ResultReadback\", \n      \
+\"Saved native WXF results did not pass a readback/hash check.\", \
+Association[\"path\" -> path]], \n     path]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionSavePartial[out_, metadata_, rows_, \
+records_, status_] := \n  Module[{m, payload}, m = Join[metadata, \
+Association[\"status\" -> status, \n       \"completed_cases\" -> \
+Length[rows], \"cases\" -> records, \"manuscript_usable\" -> False]]; \n    \
+payload = Association[\"format_version\" -> \"native_wl_partial_results_v1\", \
+\"metadata\" -> m, \n      \"status\" -> status, \"completed_cases\" -> \
+Length[rows], \"coefficients\" -> rows]; \n    \
+projectionChecked[projectionWriteCoefficientCSV[FileNameJoin[\n       {out, \
+\"partial_coefficients.csv\"}], rows]]; projectionChecked[\n     \
+projectionSaveReloadable[FileNameJoin[{out, \"partial_results.wxf\"}], \
+payload]]; \n    projectionChecked[projectionWriteJSON[FileNameJoin[{out, \
+\"partial_results_metadata.json\"}], \n      m]]; payload]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunProduction[outputDirectory_String, \
+overrides_:Association[]] := \n  Catch[Module[{config, baseline, out, cache, \
+fresh, manifest, manifestPath, rows = {}, \n     records = {}, grid, bundle, \
+identity, caseConfig, settings, caseDirectory, \n     checkpointDirectory, \
+row, record, write, allAccepted, fullContract, canonicalKeys, metadata, \n    \
+ coeffKeys, extrema, scanFiles = {}, scan, scanPath, figures = {}, render, \
+report, \n     summary = None, fail, expectedCount, result, terminalStatus, \
+terminalWrite, previousManifest, \n     caseIndex = 0, runID = CreateUUID[], \
+resultsPath}, out = ExpandFileName[outputDirectory]; \n     manifestPath = \
+FileNameJoin[{out, \"production_manifest.json\"}]; \n     result = \
+CheckAbort[Catch[Block[{$projectionRunContext = Association[]}, \n         \
+If[ !AssociationQ[overrides], Throw[projectionFailure[\"Configuration\", \n   \
+          \"Production overrides must be an Association.\"], \
+projectionAbort]]; \n          config = \
+projectionNormalizedConfig[overrides]; If[FailureQ[config], \n           \
+Throw[config, projectionAbort]]; If[ !ListQ[config[\"nus\"]] || \
+config[\"nus\"] == {} || \n             !VectorQ[config[\"nus\"], \
+projectionFiniteQ[#1] && #1 > 0 & ] || \n             \
+!ListQ[config[\"sound_speed_ratios\"]] || config[\"sound_speed_ratios\"] == \
+{} || \n             !VectorQ[config[\"sound_speed_ratios\"], \
+projectionFiniteQ[#1] && #1 > 0 & ], \n           \
+Throw[projectionFailure[\"Configuration\", \n             \"Mass and \
+sound-speed benchmark lists must be nonempty positive finite vectors.\"], \n  \
+          projectionAbort]]; Do[If[FailureQ[projectionSoundSpeed[r]], \n      \
+      Throw[projectionSoundSpeed[r], projectionAbort]], {r, \
+config[\"sound_speed_ratios\"]}]; \n          out = \
+ExpandFileName[outputDirectory]; QSFIPBH`EnsureDirectory[out]; \n          \
+fresh = TrueQ[Lookup[overrides, \"fresh\", False]]; manifestPath = \n         \
+  FileNameJoin[{out, \"production_manifest.json\"}]; previousManifest = \n    \
+       If[FileExistsQ[manifestPath], Quiet[Check[Import[manifestPath, \
+\"RawJSON\"], $Failed]], \n            None]; cache = If[ !fresh &&  \
+!KeyExistsQ[overrides, \"cache_directory\"] && \n             \
+AssociationQ[previousManifest] && StringQ[Lookup[previousManifest, \
+\"cache_directory\", \n               None]], \
+previousManifest[\"cache_directory\"], Lookup[overrides, \"cache_directory\", \
+\n             FileNameJoin[{out, \".cache\", \"native\"}]]]; cache = \
+ExpandFileName[cache]; \n          If[fresh, cache = FileNameJoin[{cache, \
+StringJoin[\"fresh-\", CreateUUID[]]}]]; \n          \
+QSFIPBH`EnsureDirectory[cache]; expectedCount = Length[config[\"nus\"]]*\n    \
+        Length[config[\"sound_speed_ratios\"]]; baseline = \
+projectionNormalizedConfig[\n            Association[]]; canonicalKeys = \
+Keys[baseline]; fullContract = \n           And @@ (Lookup[config, #1, \
+Missing[]] === baseline[#1] & ) /@ canonicalKeys; \n          fullContract = \
+fullContract && projectionScientificSettings[ProjectionSettings[\n            \
+   config]] === projectionScientificSettings[ProjectionSettings[baseline]]; \
+\n          metadata = Association[\"run_id\" -> runID, \"runtime\" -> \
+$Version, \n            \"native_wolfram_language\" -> True, \
+\"external_reference_runtime\" -> False, \n            \"source\" -> \
+\"fresh/resumed native physical propagator and Sobol integrations\", \n       \
+     \"format\" -> \"native WXF arrays plus JSON/CSV (not NPZ)\", \n          \
+  \"mode\" -> If[fullContract, \"production\", \"custom_or_smoke\"], \
+\"manuscript_usable\" -> \n             False, \"full_production_contract\" \
+-> fullContract, \"production_contract_version\" -> \n             \
+config[\"production_contract_version\"], \"configuration\" -> config, \n      \
+      \"formula_version\" -> \
+\"full_momentum_sound_speed_v3_cphi_inverse_cube\", \n            \
+\"sampling_precision_accepted\" -> False, \"cold_requested\" -> fresh, \n     \
+       \"cache_directory\" -> cache, \"expected_cases\" -> expectedCount]; \n \
+         manifest = Join[metadata, Association[\"status\" -> \"running\", \
+\"completed_cases\" -> 0, \n             \"cases\" -> {}]]; \
+projectionChecked[projectionWriteJSON[manifestPath, manifest]]; \n          \
+AbortProtect[projectionSavePartial[out, metadata, rows, records, \
+\"running\"]]; \n          $projectionRunContext = Association[\"phase\" -> \
+\"native_integration\", \n            \"total_cases\" -> expectedCount, \
+\"completed_cases\" -> 0, \"current_case\" -> 0, \n            \"run_id\" -> \
+runID]; projectionEmit[Association[\"event\" -> \"production_start\"]]; \n    \
+      Do[caseIndex++; $projectionRunContext = Join[$projectionRunContext, \n  \
+            Association[\"current_case\" -> caseIndex, \"r_s\" -> N[r], \
+\"nu_tilde\" -> N[nu], \n               \"completed_cases\" -> \
+Length[rows]]]; projectionEmit[Association[\n              \"event\" -> \
+\"case_start\"]]; caseConfig = Join[config, projectionSoundSpeed[r]]; \n      \
+      settings = ProjectionSettings[caseConfig]; If[FailureQ[settings], \n    \
+         Throw[settings, projectionAbort]]; identity = \
+projectionGridIdentity[nu, settings]; \n            caseDirectory = \
+FileNameJoin[{cache, StringJoin[\"r_\", projectionRatioLabel[r]], \n          \
+     StringJoin[\"nu_\", projectionRatioLabel[nu]], \
+projectionHash[identity]}]; \n            \
+projectionEmit[Association[\"event\" -> \"grid_start\", \"stage\" -> \
+\"propagator_grid\", \n              \"cache_hit\" -> \
+FileExistsQ[FileNameJoin[{caseDirectory, \"mixed_grid.wxf\"}]]]]; \n          \
+  grid = projectionCache[FileNameJoin[{caseDirectory, \"mixed_grid.wxf\"}], \
+identity, \n              Function[Null, QSFIPBH`BuildMixedGrid[nu, \
+settings]]]; If[FailureQ[grid], \n             Throw[grid, projectionAbort]]; \
+projectionEmit[Association[\"event\" -> \"grid_complete\", \n              \
+\"stage\" -> \"propagator_grid\"]]; identity = Association[\"kind\" -> \
+\"ratio_bundle\", \n              \"grid_sha256\" -> projectionHash[grid], \
+\"minimum_ratio\" -> settings[\"ratio_floor\"], \n              \
+\"node_count\" -> settings[\"ratio_nodes\"]]; projectionEmit[Association[\n   \
+           \"event\" -> \"ratio_table_start\", \"stage\" -> \"ratio_table\", \
+\"ratio_nodes\" -> settings[\n                \"ratio_nodes\"], \"cache_hit\" \
+-> FileExistsQ[FileNameJoin[{caseDirectory, \n                  \
+StringJoin[\"ratio_bundle_\", projectionHash[identity], \".wxf\"]}]]]]; \n    \
+        bundle = projectionCache[FileNameJoin[{caseDirectory, \
+StringJoin[\"ratio_bundle_\", \n                 projectionHash[identity], \
+\".wxf\"]}], identity, Function[Null, \n               \
+QSFIPBH`BuildRatioBundle[grid, settings[\"ratio_floor\"], \
+settings[\"ratio_nodes\"]]]]; \n            If[FailureQ[bundle], \
+Throw[bundle, projectionAbort]]; projectionEmit[\n             \
+Association[\"event\" -> \"ratio_table_complete\", \"stage\" -> \
+\"ratio_table\", \n              \"ratio_nodes\" -> \
+settings[\"ratio_nodes\"]]]; checkpointDirectory = \n             \
+FileNameJoin[{caseDirectory, StringJoin[\"qmc_\", projectionHash[\n           \
+      {projectionCheckpointIdentity[settings], \
+projectionEvaluatorIdentity[bundle]}]]}]; \n            record = \
+ProjectAllStages[bundle, settings, checkpointDirectory]; \n            \
+If[FailureQ[record], Throw[record, projectionAbort]]; AbortProtect[\n         \
+    row = Join[record, Association[\"r_s\" -> N[r], \"nu_tilde\" -> N[nu], \n \
+                \"cache_directory\" -> caseDirectory]]; AppendTo[rows, row]; \
+AppendTo[records, \n               Association[\"r_s\" -> N[r], \"nu_tilde\" \
+-> N[nu], \"sampling_precision_accepted\" -> \n                 \
+record[\"sampling_precision_accepted\"], \"checkpoint_directory\" -> \n       \
+          checkpointDirectory]]; manifest = Join[manifest, \
+Association[\"completed_cases\" -> \n                  Length[rows], \
+\"cases\" -> records]]; projectionSavePartial[out, metadata, rows, \n         \
+      records, \"running\"]; \
+projectionChecked[projectionWriteJSON[manifestPath, \n                \
+manifest]]]; $projectionRunContext = Join[$projectionRunContext, \n           \
+   Association[\"completed_cases\" -> Length[rows]]]; projectionEmit[\n       \
+      Association[\"event\" -> \"case_saved\", \"partial_results_file\" -> \
+FileNameJoin[\n                {out, \"partial_results.wxf\"}]]], {r, \
+config[\"sound_speed_ratios\"]}, \n           {nu, config[\"nus\"]}]; \
+allAccepted = AllTrue[rows, \n            \
+TrueQ[#1[\"sampling_precision_accepted\"]] & ]; metadata = Join[metadata, \n  \
+          Association[\"sampling_precision_accepted\" -> allAccepted, \
+\"manuscript_usable\" -> \n              allAccepted && fullContract, \
+\"numerical_status\" -> If[allAccepted, \n               \
+\"sampling_target_met\", \"provisional_sampling_error\"]]]; \n          \
+coeffKeys = {\"r_s\", \"nu_tilde\", \"c_phi\", \"c_sigma\", \"C3_hat\", \
+\"C4_contact_hat\", \n            \"C4_exchange_hat\", \
+\"C3_hat_standard_error\", \"C4_contact_hat_standard_error\", \n            \
+\"C4_exchange_hat_standard_error\", \"sampling_precision_accepted\"}; \n      \
+    projectionChecked[projectionWriteCoefficientCSV[FileNameJoin[{out, \
+\"coefficients.csv\"}], \n            rows]]; \
+projectionChecked[projectionWriteJSON[FileNameJoin[\n             {out, \
+\"coefficient_diagnostics.json\"}], Association[\"metadata\" -> metadata, \n  \
+           \"coefficients\" -> rows]]]; If[ !allAccepted, \n           \
+manifest = Join[manifest, metadata, Association[\"status\" -> \n              \
+  \"provisional_precision_rejected\", \"cases\" -> records]]; \
+projectionChecked[\n             projectionWriteJSON[manifestPath, \
+manifest]]; Throw[projectionFailure[\n              \"ProductionPrecision\", \
+\"One or more QMC stages did not reach their requested sampling \
+\\\nprecision. Diagnostic coefficients and resumable checkpoints were saved; \
+no accepted production \\\noutputs were exported.\", Association[\"manifest\" \
+-> manifestPath, \"rejected_cases\" -> \n                Select[records,  \
+!TrueQ[#1[\"sampling_precision_accepted\"]] & ]]], \n             \
+projectionAbort]]; extrema = QSFIPBH`ComputeExtrema[rows, config]; \n         \
+ fail = projectionCoreFailure[extrema]; If[FailureQ[extrema], Throw[extrema, \
+\n            projectionAbort]]; If[FailureQ[fail], Throw[fail, \
+projectionAbort]]; \n          write = \
+Quiet[Check[QSFIPBH`WriteAssociationCSV[FileNameJoin[{out, \"extrema.csv\"}], \
+\n              extrema], $Failed]]; If[ !StringQ[write] ||  \
+!FileExistsQ[write] || \n            FileByteCount[write] == 0, \
+Throw[projectionFailure[\"ResultWrite\", \n             \"Could not save \
+extrema CSV.\"], projectionAbort]]; \n          If[TrueQ[Lookup[overrides, \
+\"export_scans\", True]], \n           \
+Do[projectionEmit[Association[\"phase\" -> \"native_storage\", \"event\" -> \
+\n                \"scan_export_start\", \"stage\" -> \"scan_export\", \
+\"scan_completed\" -> \n                Length[scanFiles], \"scan_total\" -> \
+Length[rows], \"r_s\" -> row[\"r_s\"], \"nu_tilde\" -> \n                \
+row[\"nu_tilde\"]]]; scan = projectionScanChunk[row, config, metadata]; \n    \
+         fail = projectionCoreFailure[scan]; If[FailureQ[fail], Throw[fail, \
+projectionAbort]]; \n             scanPath = FileNameJoin[{out, \"scans\", \
+StringJoin[\"r_\", projectionRatioLabel[\n                  row[\"r_s\"]], \
+\"_nu_\", projectionRatioLabel[row[\"nu_tilde\"]], \".wxf\"]}]; \n            \
+ write = projectionWriteWXF[scanPath, scan]; If[FailureQ[write], \n           \
+   Throw[write, projectionAbort]]; AppendTo[scanFiles, Association[\"r_s\" -> \
+row[\"r_s\"], \n               \"nu_tilde\" -> row[\"nu_tilde\"], \"file\" -> \
+scanPath, \"file_sha256\" -> \n                \
+IntegerString[FileHash[scanPath, \"SHA256\"], 16, 64]]]; projectionEmit[\n    \
+          Association[\"phase\" -> \"native_storage\", \"event\" -> \
+\"scan_saved\", \"stage\" -> \n                \"scan_export\", \
+\"scan_completed\" -> Length[scanFiles], \"scan_total\" -> Length[rows], \n   \
+            \"scan_file\" -> scanPath]]; Clear[scan], {row, rows}]]; \n       \
+   render = Lookup[overrides, \"generate_figures\", Lookup[overrides, \
+\"render_figures\", \n             True]]; If[TrueQ[render], \
+If[Length[DownValues[QSFIPBH`RenderProductionFigures]] == 0, \n             \
+Throw[projectionFailure[\"FigureModule\", \n               \"Load the native \
+figure module before requesting production figures.\"], \n              \
+projectionAbort]]; figures = QSFIPBH`RenderProductionFigures[rows, \n         \
+     FileNameJoin[{out, \"figures\"}], config]; If[FailureQ[figures], \n      \
+       Throw[figures, projectionAbort]]]; report = StringRiffle[\n            \
+{\"Native QSFI-PBH numerical results\", StringJoin[\"mode: \", \
+metadata[\"mode\"]], \n             StringJoin[\"sampling precision accepted: \
+\", ToString[allAccepted, InputForm]], \n             StringJoin[\"manuscript \
+usable: \", ToString[metadata[\"manuscript_usable\"], InputForm]], \n         \
+    StringJoin[\"Cases: \", ToString[Length[rows]]], \"The hatted coefficient \
+table is \\\ncoefficients.csv; independent Sobol standard errors are \
+retained.\", \"Coupling scan files are native \\\nWXF chunks, with lambda4 \
+rows and lambda3 columns. Invalid one-sided QNG cells are Indeterminate.\", \
+\n             \"Randomized Sobol streams are native Wolfram streams; they \
+use independent scrambling.\", \"[extrema]\", ToString[extrema, \
+InputForm]}, \"\\n\"]; \n          write = \
+Quiet[Check[Export[FileNameJoin[{out, \"numerical_results.txt\"}], report, \
+\"Text\"], \n             $Failed]]; If[ !StringQ[write] ||  \
+!FileExistsQ[write] || FileByteCount[write] == 0, \n           \
+Throw[projectionFailure[\"ResultWrite\", \"Could not save the numerical \
+report.\"], \n            projectionAbort]]; summary = Join[metadata, \
+Association[\"status\" -> \n              If[fullContract, \
+\"production_complete\", \"custom_complete\"], \"completed_cases\" -> \n      \
+        Length[rows], \"coefficients\" -> rows, \"extrema\" -> extrema, \
+\"scan_chunks\" -> \n              scanFiles, \"figures\" -> figures, \
+\"manifest\" -> manifestPath]]; \n          \
+projectionChecked[projectionWriteJSON[FileNameJoin[{out, \
+\"scan_manifest.json\"}], \n            Association[\"metadata\" -> metadata, \
+\"chunk_format\" -> \n              \"native_wl_coupling_scan_chunk_v1\", \
+\"datasets\" -> {\"hatted_cumulant_coefficients\", \n               \
+\"sound_speed_log10_beta_ratio_full\", \"sound_speed_comparison_full\"}, \n   \
+          \"chunks\" -> scanFiles]]]; If[ !AllTrue[Join[Lookup[scanFiles, \
+\"file\", {}], \n              Flatten[figures]], StringQ[#1] && \
+FileExistsQ[#1] && FileByteCount[#1] > 0 & ], \n           \
+Throw[projectionFailure[\"ResultWrite\", \n             \"One or more \
+requested array/figure exports are missing or empty.\"], \n            \
+projectionAbort]]; resultsPath = FileNameJoin[{out, \
+\"production_results.wxf\"}]; \n          summary = Join[summary, \
+Association[\"results_file\" -> resultsPath]]; \n          \
+AbortProtect[projectionChecked[projectionSaveReloadable[resultsPath, \
+summary]]; \n            projectionSavePartial[out, metadata, rows, records, \
+summary[\"status\"]]; \n            manifest = Join[manifest, \
+KeyDrop[summary, {\"coefficients\"}], Association[\"cases\" -> \n             \
+   records]]; projectionChecked[projectionWriteJSON[manifestPath, \
+manifest]]]; \n          projectionEmit[Association[\"event\" -> \
+\"production_complete\", \n            \"phase\" -> \"native_integration\", \
+\"results_file\" -> resultsPath, \n            \"completed_cases\" -> \
+Length[rows]]]; summary], projectionAbort], \n       \
+projectionFailure[\"Interrupted\", \n        \"Native production was \
+interrupted; completed cases and stage checkpoints remain \\\nresumable.\"]]; \
+If[FailureQ[result] && StringQ[out] && StringQ[manifestPath], \n      \
+terminalStatus = Which[MatchQ[result, Failure[\"Interrupted\", _]], \
+\"interrupted\", \n         AssociationQ[manifest] && Lookup[manifest, \
+\"status\", None] == \n           \"provisional_precision_rejected\", \
+\"provisional_precision_rejected\", True, \"failed\"]; \n       terminalWrite \
+= AbortProtect[Catch[If[ !AssociationQ[metadata], \n            metadata = \
+Association[\"run_id\" -> runID, \"native_wolfram_language\" -> True]]; \n    \
+       metadata = Join[metadata, Association[\"status\" -> terminalStatus, \
+\"manuscript_usable\" -> \n               False, \"failure\" -> \
+ToString[result, InputForm]]]; \n           manifest = \
+Join[If[AssociationQ[manifest], manifest, Association[]], metadata, \n        \
+     Association[\"completed_cases\" -> Length[rows], \"cases\" -> records]]; \
+\n           projectionSavePartial[out, metadata, rows, records, \
+terminalStatus]; \n           If[AssociationQ[summary], summary = \
+Join[summary, Association[\"status\" -> \n                 terminalStatus, \
+\"manuscript_usable\" -> False, \"failure\" -> ToString[result, \n            \
+      InputForm]]]; \
+projectionChecked[projectionSaveReloadable[FileNameJoin[\n                \
+{out, \"production_results.wxf\"}], summary]]]; projectionChecked[\n          \
+  projectionWriteJSON[manifestPath, manifest]], projectionAbort]]; \n       \
+If[FailureQ[terminalWrite], \
+Return[projectionFailure[\"RunFailurePersistence\", \n          \"The native \
+run failed and terminal metadata could not be persisted.\", \n          \
+Association[\"cause\" -> ToString[result, InputForm], \"persistence_failure\" \
+-> \n            ToString[terminalWrite, InputForm], \"output_directory\" -> \
+out]]]]]; result], \n   projectionAbort]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"FitCMBTemplate[bundle_Association, data_Association, \
+config_:Association[]] := \n  Catch[Module[{c, x, y, observed, cov, raw, \
+template, result, as, mix, k1, k2, terms, sq, shapes, \n     validation = \
+Association[], fit, expected}, \n    c = Join[Association[\"A_s\" -> 2.1*^-9, \
+\"lambda2_over_h\" -> 0.38, \n        \"validate_standard_templates\" -> \
+True], config]; If[KeyExistsQ[config, \"lambda2_over_H\"], \n      \
+c[\"lambda2_over_h\"] = config[\"lambda2_over_H\"]]; \n     If[ \
+!AllTrue[{\"x\", \"y\", \"data\", \"cov\"}, KeyExistsQ[data, #1] & ], \n      \
+Throw[projectionFailure[\"CMBData\", \"CMB fit requires x,y,data,cov \
+arrays.\"], \n       projectionAbort]]; {x, y, observed, cov} = Lookup[data, \
+{\"x\", \"y\", \"data\", \"cov\"}]; \n     If[ !VectorQ[x, \
+projectionFiniteQ[#1] && Inequality[0, Less, #1, LessEqual, 1] & ] || \n      \
+ Length[x] == 0 ||  !VectorQ[y, projectionFiniteQ[#1] && Inequality[0, Less, \
+#1, LessEqual, \n            1] & ] || Length[x] != Length[y] ||  \
+!VectorQ[observed, projectionFiniteQ] || \n       Length[observed] != \
+Length[x] ||  !MatrixQ[cov, projectionFiniteQ] || \n       Dimensions[cov] != \
+{Length[x], Length[x]}, Throw[projectionFailure[\"CMBData\", \n        \"CMB \
+bin coordinates, data or full covariance have invalid domains or \
+dimensions.\"], \n       projectionAbort]]; as = c[\"A_s\"]; mix = \
+c[\"lambda2_over_h\"]; \n     If[ !projectionFiniteQ[as] || as <= 0 ||  \
+!projectionFiniteQ[mix] || \n        !TrueQ[Inequality[0, Less, mix, \
+LessEqual, 0.8]], \n      Throw[projectionFailure[\"CMBNormalization\", \n    \
+    \"Require positive scalar amplitude and mixing within the EFT \
+ceiling.\"], projectionAbort]]; \n     raw = \
+MapThread[QSFIPBH`BispectrumShape[bundle, #1, #2, 1.] & , {x, y}]; \n     fit \
+= projectionCoreFailure[raw]; If[FailureQ[fit], Throw[fit, projectionAbort]]; \
+\n     If[ !VectorQ[raw, projectionFiniteQ], \
+Throw[projectionFailure[\"CMBShape\", \n        \"Full cubic CMB shape \
+contains nonfinite values.\"], projectionAbort]]; \n     template = \
+(10./9)*(mix^3/Sqrt[as])*raw; result = QSFIPBH`FitTemplate[template, \
+observed, \n       cov]; If[FailureQ[result], Throw[result, \
+projectionAbort]]; \n     If[TrueQ[c[\"validate_standard_templates\"]], k1 = \
+x^((4 - 0.9660499)/3); \n       k2 = y^((4 - 0.9660499)/3); terms = k1/k2 + \
+k1 + k2 + k2/k1 + 1/k1 + 1/k2; \n       sq = k1^2/k2 + k2^2/k1 + 1/(k1*k2); \
+shapes = {(k1^3 + k2^3 + 1)/(3*k1*k2), terms - sq - 2, \n         3*terms - \
+3*sq - 8}; expected = {{4., 5.6}, {-3.3, 46.9}, {-26.5, 24.9}}; \n       \
+Do[fit = QSFIPBH`FitTemplate[shapes[[j]], observed, cov]; If[FailureQ[fit], \
+\n          Throw[fit, projectionAbort]]; If[Abs[fit[\"mean\"] - \
+expected[[j,1]]] >= 0.07 || \n           Abs[fit[\"sigma\"] - \
+expected[[j,2]]] >= 0.07, Throw[projectionFailure[\"CMBValidation\", \n       \
+     \"Released Planck PR4 standard-template validation failed.\", \n         \
+   Association[\"template\" -> {\"local\", \"equilateral\", \
+\"orthogonal\"}[[j]], \"fit\" -> fit]], \n           projectionAbort]]; \
+validation[{\"local\", \"equilateral\", \"orthogonal\"}[[j]]] = fit, \n       \
+ {j, 3}]]; Join[result, Association[\"n_bins\" -> Length[x], \"A_s\" -> as, \
+\n       \"lambda2_over_H\" -> mix, \"r_s\" -> \
+bundle[\"c_phi\"]/bundle[\"c_sigma\"], \n       \"nu_tilde\" -> \
+bundle[\"nutilde\"], \"likelihood\" -> \n        \"Gaussian with supplied \
+full covariance; one varying cubic QSFI template\", \n       \
+\"observable_normalization\" -> \"S_obs=(10/9) (lambda2/H)^3 shape_hat / \
+sqrt(A_s)\", \n       \"standard_template_validation\" -> validation, \
+\"standard_template_validation_requested\" -> \n        \
+TrueQ[c[\"validate_standard_templates\"]], \"template_hash_algorithm\" -> \n  \
+      \"Wolfram-Expression-SHA256\", \"template_sha256\" -> \
+projectionHash[template], \n       \"evaluator_identity\" -> \
+projectionEvaluatorIdentity[bundle], \"x\" -> x, \"y\" -> y, \n       \
+\"shape_hat\" -> raw, \"template_per_lambda3\" -> template]]], \
+projectionAbort]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunCMBFit[outputDirectory_String, input_, \
+overrides_:Association[]] := \n  Catch[Module[{out, data, c, settings, \
+resolution, grid, ratios, rows, bundle, result, write, \n     fail, nu, r, \
+propagator, rowIndex}, If[ !AssociationQ[overrides], \n      \
+Throw[projectionFailure[\"Configuration\", \"CMB overrides must be an \
+Association.\"], \n       projectionAbort]]; data = If[AssociationQ[input], \
+input, If[StringQ[input], \n        Quiet[Check[Import[input, \
+If[ToLowerCase[FileExtension[input]] == \"wxf\", \"WXF\", \n            \
+\"RawJSON\"]], $Failed]], $Failed]]; \n     If[ !AssociationQ[data] ||  \
+!AllTrue[{\"x\", \"y\", \"data\", \"cov\"}, KeyExistsQ[data, #1] & ], \n      \
+Throw[projectionFailure[\"CMBData\", \"Supply a native Association, JSON or \
+WXF containing \\\nx,y,data,cov; the input is read directly.\"], \
+projectionAbort]]; \n     resolution = Lookup[overrides, \"resolution\", \
+\"coarse\"]; \n     If[ !MemberQ[{\"coarse\", \"fine\"}, resolution], \
+Throw[projectionFailure[\"Configuration\", \n        \"CMB resolution must be \
+coarse or fine.\"], projectionAbort]]; \n     c = \
+Join[Association[\"wick_pivot\" -> 4., \"wick_depth\" -> If[resolution == \
+\"coarse\", 16., 20.], \n        \"tail_depth\" -> If[resolution == \
+\"coarse\", 18., 22.], \"real_step\" -> \n         If[resolution == \
+\"coarse\", 0.04, 0.02], \"vertical_step\" -> If[resolution == \"coarse\", \n \
+         0.04, 0.02], \"nlog\" -> If[resolution == \"coarse\", 400, 650], \
+\"xmin\" -> 10^(-6), \n        \"dps\" -> 35, \"c_phi\" -> 1., \"c_sigma\" -> \
+1./3, \"i_epsilon\" -> 10^(-8), \"nu_tilde\" -> 0.1, \n        \"A_s\" -> \
+2.1*^-9, \"lambda2_over_h\" -> 0.38], overrides]; settings = \
+ProjectionSettings[c]; \n     If[FailureQ[settings], Throw[settings, \
+projectionAbort]]; nu = c[\"nu_tilde\"]; \n     \
+projectionEmit[Association[\"phase\" -> \"native_cmb\", \"event\" -> \
+\"cmb_start\", \n       \"r_s\" -> c[\"c_phi\"]/c[\"c_sigma\"], \"nu_tilde\" \
+-> nu, \"resolution\" -> resolution]]; \n     grid = \
+QSFIPBH`BuildMixedGrid[nu, settings]; If[FailureQ[grid], Throw[grid, \
+projectionAbort]]; \n     ratios = N[Sort[DeleteDuplicates[Join[data[\"x\"], \
+data[\"y\"], {1.}]]]]; \n     If[ !VectorQ[ratios, projectionFiniteQ[#1] && \
+Inequality[0, Less, #1, LessEqual, 1] & ], \n      \
+Throw[projectionFailure[\"CMBData\", \"CMB ratios must be positive and no \
+larger than one.\"], \n       projectionAbort]]; rows = Table[propagator = \
+QSFIPBH`MixedPropagator[grid, \n          ratios[[rowIndex]]]; \
+If[FailureQ[propagator], Throw[propagator, projectionAbort]]; \n        \
+If[rowIndex == 1 || rowIndex == Length[ratios] || Mod[rowIndex, 10] == 0, \n  \
+       projectionEmit[Association[\"phase\" -> \"native_cmb\", \"event\" -> \
+\"cmb_ratio\", \n           \"r_s\" -> c[\"c_phi\"]/c[\"c_sigma\"], \
+\"nu_tilde\" -> nu, \"sample_completed\" -> rowIndex, \n           \
+\"sample_total\" -> Length[ratios]]]]; propagator, {rowIndex, \
+Length[ratios]}]; \n     bundle = Association[\"z_plus\" -> grid[\"z_plus\"], \
+\"ratios\" -> ratios, \n       \"i_plus\" -> Lookup[rows, \"Iplus\"], \
+\"h1_plus\" -> Lookup[rows, \"H1_plus\"], \n       \"h2c_plus\" -> \
+Lookup[rows, \"H2c_plus\"], \"nutilde\" -> nu, \"c_phi\" -> c[\"c_phi\"], \n  \
+     \"c_sigma\" -> c[\"c_sigma\"], \"i_epsilon\" -> c[\"i_epsilon\"]]; \n    \
+ result = FitCMBTemplate[bundle, data, c]; If[FailureQ[result], \n      \
+Throw[result, projectionAbort]]; result = Join[result, \n       \
+Association[\"resolution\" -> resolution, \"source\" -> \n         \"new \
+native mixed grid; direct propagator at every observed ratio\", \n        \
+\"ratio_interpolation\" -> \"Exact observed ratio nodes (no geometric-ratio \
+interpolation)\", \n        \"native_wolfram_language\" -> True, \
+\"configuration\" -> c]]; \n     out = ExpandFileName[outputDirectory]; \
+QSFIPBH`EnsureDirectory[out]; \n     write = \
+projectionSaveReloadable[FileNameJoin[{out, StringJoin[\"cmb_template_\", \
+resolution, \n          \".wxf\"]}], KeyTake[result, {\"x\", \"y\", \
+\"shape_hat\", \"template_per_lambda3\"}]]; \n     If[FailureQ[write], \
+Throw[write, projectionAbort]]; projectionChecked[\n      \
+projectionWriteJSON[FileNameJoin[{out, StringJoin[\"cmb_fit_\", resolution, \
+\".json\"]}], \n       KeyDrop[result, {\"x\", \"y\", \"shape_hat\", \
+\"template_per_lambda3\"}]]]; \n     projectionEmit[Association[\"phase\" -> \
+\"native_cmb\", \"event\" -> \"cmb_complete\", \n       \"r_s\" -> \
+c[\"c_phi\"]/c[\"c_sigma\"], \"nu_tilde\" -> nu, \"results_file\" -> \n       \
+ FileNameJoin[{out, StringJoin[\"cmb_fit_\", resolution, \".json\"]}], \n     \
+  \"sample_completed\" -> Length[ratios], \"sample_total\" -> \
+Length[ratios]]]; result], \n   projectionAbort]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunExchangeConvergence[outputDirectory_String, \
+overrides_:Association[]] := \n  Catch[Module[{out, config, settings, cases, \
+reps, tolerance, identity, grid, \n     bundles = Association[], bundle, \
+caseSettings, estimate, estimates = Association[], factor, \n     comparisons \
+= Association[], pairs, names, first, second, scale, relative, test, \n     \
+refinementAccepted, samplingAccepted, report, write, caseRecord, label, \
+nodes}, \n    If[ !AssociationQ[overrides], \
+Throw[projectionFailure[\"Configuration\", \n        \"Convergence overrides \
+must be an Association.\"], projectionAbort]]; \n     config = \
+projectionNormalizedConfig[Join[Association[\"c_phi\" -> 1., \"c_sigma\" -> \
+1./3], \n        overrides]]; If[FailureQ[config], Throw[config, \
+projectionAbort]]; config[\"c_phi\"] = 1.; \n     config[\"c_sigma\"] = 1./3; \
+settings = ProjectionSettings[config]; \n     If[FailureQ[settings], \
+Throw[settings, projectionAbort]]; \n     cases = Lookup[overrides, \
+\"numerical_cases\", {Association[\"label\" -> \"m12_n128\", \n         \
+\"sobol_power\" -> 12, \"ratio_nodes\" -> 128], Association[\"label\" -> \
+\"m12_n256\", \n         \"sobol_power\" -> 12, \"ratio_nodes\" -> 256], \
+Association[\"label\" -> \"m13_n256\", \n         \"sobol_power\" -> 13, \
+\"ratio_nodes\" -> 256], Association[\"label\" -> \"m14_n256\", \n         \
+\"sobol_power\" -> 14, \"ratio_nodes\" -> 256]}]; \n     reps = \
+Lookup[overrides, \"fixed_replicates\", 6]; \n     tolerance = \
+Lookup[overrides, \"relative_tolerance\", 0.03]; \n     If[ !IntegerQ[reps] \
+|| reps < 2 ||  !projectionFiniteQ[tolerance] || tolerance <= 0 || \n        \
+!ListQ[cases] || Length[cases] < 2 || \n        !AllTrue[cases, \
+AssociationQ[#1] && StringQ[Lookup[#1, \"label\", None]] && \n           \
+IntegerQ[Lookup[#1, \"sobol_power\", None]] && 1 <= #1[\"sobol_power\"] <= 24 \
+&& \n           IntegerQ[Lookup[#1, \"ratio_nodes\", None]] && \
+#1[\"ratio_nodes\"] >= 3 & ], \n      \
+Throw[projectionFailure[\"Configuration\", \"Convergence requires at least \
+two labeled numerical \\\ncases, >=2 fixed replicates and positive \
+tolerance.\"], projectionAbort]]; \n     If[ !DuplicateFreeQ[Lookup[cases, \
+\"label\"]], Throw[projectionFailure[\"Configuration\", \n        \
+\"Convergence case labels must be unique.\"], projectionAbort]]; \n     out = \
+ExpandFileName[outputDirectory]; QSFIPBH`EnsureDirectory[out]; \n     \
+identity = projectionGridIdentity[0.1, settings]; \n     grid = \
+projectionCache[FileNameJoin[{out, \"cache\", StringJoin[\"mixed_grid_\", \n  \
+        projectionHash[identity], \".wxf\"]}], identity, Function[Null, \n    \
+    QSFIPBH`BuildMixedGrid[0.1, settings]]]; If[FailureQ[grid], Throw[grid, \
+projectionAbort]]; \n     factor = \
+settings[\"power_area\"]/settings[\"lambda2_over_h\"]^4; \n     Do[label = \
+caseRecord[\"label\"]; nodes = caseRecord[\"ratio_nodes\"]; \n       If[ \
+!KeyExistsQ[bundles, ToString[nodes]], identity = Association[\"kind\" -> \
+\"ratio_bundle\", \n           \"grid_sha256\" -> projectionHash[grid], \
+\"minimum_ratio\" -> settings[\"ratio_floor\"], \n           \"node_count\" \
+-> nodes]; bundle = projectionCache[FileNameJoin[{out, \"cache\", \n          \
+   StringJoin[\"ratio_bundle_\", projectionHash[identity], \".wxf\"]}], \
+identity, \n           Function[Null, QSFIPBH`BuildRatioBundle[grid, \
+settings[\"ratio_floor\"], nodes]]]; \n         If[FailureQ[bundle], \
+Throw[bundle, projectionAbort]]; bundles[ToString[nodes]] = bundle]; \n       \
+bundle = bundles[ToString[nodes]]; caseSettings = Join[settings, \n         \
+Association[\"ratio_nodes\" -> nodes, \"full_ratio_nodes\" -> nodes, \n       \
+   \"sobol_power_exchange\" -> caseRecord[\"sobol_power\"], \
+\"sobol_min_replicates_four_point\" -> \n           reps, \
+\"sobol_max_replicates_four_point\" -> reps, \n          \
+\"sobol_max_power_increment_four_point\" -> 0]]; \n       estimate = \
+EstimateStage[bundle, \"exchange\", caseSettings, \n         \
+FileNameJoin[{out, \"qmc_checkpoints\", \
+projectionHash[{projectionCheckpointIdentity[\n              caseSettings], \
+projectionEvaluatorIdentity[bundle]}], \"exchange.wxf\"}]]; \n       \
+If[FailureQ[estimate], Throw[estimate, projectionAbort]]; estimates[label] = \
+\n        Association[\"label\" -> label, \"sobol_power\" -> \
+caseRecord[\"sobol_power\"], \n         \"ratio_nodes\" -> nodes, \
+\"S4_per_lambda3_over_H_squared_exchange\" -> \n          \
+estimate[\"coefficient\"], \
+\"S4_per_lambda3_over_H_squared_exchange_standard_error\" -> \n          \
+estimate[\"coefficient_standard_error\"], \"C4_exchange_hat\" -> \n          \
+factor*estimate[\"coefficient\"], \"C4_exchange_hat_standard_error\" -> \n    \
+      Abs[factor]*estimate[\"coefficient_standard_error\"], \"sampling\" -> \
+estimate], \n      {caseRecord, cases}]; pairs = \
+Join[Partition[Keys[estimates], 2, 1], \n       If[Length[cases] > 2, \
+{{First[Keys[estimates]], Last[Keys[estimates]]}}, {}]]; \n     names = \
+If[Lookup[cases, \"label\"] === {\"m12_n128\", \"m12_n256\", \"m13_n256\", \
+\"m14_n256\"}, \n       {\"ratio_grid_128_to_256_at_m12\", \
+\"sobol_m12_to_m13_at_n256\", \"sobol_m13_to_m14_at_n256\", \n        \
+\"overall_m12_n128_to_m14_n256\"}, Table[StringJoin[\"refinement_\", \
+ToString[j]], \n        {j, Length[pairs]}]]; Do[first = \
+estimates[pairs[[j,1]]]; second = estimates[pairs[[j,2]]]; \n       scale = \
+Max[Abs[first[\"C4_exchange_hat\"]], Abs[second[\"C4_exchange_hat\"]]]; \n    \
+   relative = If[scale == 0, 0., Abs[second[\"C4_exchange_hat\"] - \
+first[\"C4_exchange_hat\"]]/\n          scale]; test = \
+CompareStageEstimates[first[\"sampling\"], second[\"sampling\"], \n         \
+Association[\"relative_tolerance\" -> tolerance]]; If[FailureQ[test], \n      \
+  Throw[test, projectionAbort]]; comparisons[names[[j]]] = \n        \
+Association[\"from\" -> pairs[[j,1]], \"to\" -> pairs[[j,2]], \
+\"relative_difference\" -> \n          relative, \"tolerance\" -> tolerance, \
+\"passed\" -> TrueQ[relative <= tolerance], \n         \
+\"uncertainty_aware_comparison\" -> test], {j, Length[pairs]}]; \n     \
+refinementAccepted = AllTrue[Values[comparisons], TrueQ[#1[\"passed\"]] & ]; \
+\n     samplingAccepted = AllTrue[Values[estimates], \
+TrueQ[#1[\"sampling\"][\"precision_accepted\"]] & ]; \n     report = \
+Association[\"purpose\" -> \"r_s=3, nu_tilde=.1 scalar-exchange convergence \
+check\", \n       \"native_wolfram_language\" -> True, \"manuscript_usable\" \
+-> False, \"nu_tilde\" -> 0.1, \n       \"sound_speed\" -> \
+Association[\"ratio\" -> 3., \"c_phi\" -> 1., \"c_sigma\" -> 1./3], \n       \
+\"fixed_replicates\" -> reps, \"adaptive_sobol_power_increment\" -> 0, \n     \
+  \"relative_tolerance\" -> tolerance, \"normalization\" -> \n        \
+Association[\"power_area\" -> settings[\"power_area\"], \"lambda2_over_H\" -> \
+\n          settings[\"lambda2_over_h\"], \
+\"barred_to_hatted_exchange_factor\" -> factor], \n       \"estimates\" -> \
+estimates, \"comparisons\" -> comparisons, \"passed\" -> refinementAccepted, \
+\n       \"sampling_precision_accepted\" -> samplingAccepted, \"accepted\" -> \
+\n        refinementAccepted && samplingAccepted, \"configuration\" -> \
+config]; \n     QSFIPBH`WriteJSON[FileNameJoin[{out, \
+\"r3_nu0p1_exchange_convergence.json\"}], report]; report], \n   \
+projectionAbort]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"End[]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"EndPackage[]; "}]], "Input", 
+   InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]

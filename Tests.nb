@@ -1,0 +1,1561 @@
+Notebook[{Cell["QSFI\[Dash]PBH: Regression Tests", "Title"], 
+  Cell["Load modules", "Section"], 
+  Cell[BoxData[RowBox[{"ClearAll[QSFILoadNotebookCode]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"QSFILoadNotebookCode[path_String] := Module[{book, \
+boxes, results}, \n   book = Get[path]; If[Head[book] =!= Notebook, \
+Return[Failure[\"NotebookFormat\", \n       Association[\"MessageTemplate\" \
+-> \"Expected a native Mathematica Notebook.\"]]]]; \n    boxes = Cases[book, \
+Cell[BoxData[box_], \"Input\", options___] /; \n        \
+TrueQ[InitializationCell /. {options} /. InitializationCell -> False] :> box, \
+Infinity]; \n    If[boxes === {}, Return[Failure[\"NotebookCells\", \
+Association[\"MessageTemplate\" -> \n         \"No executable initialization \
+cells found.\"]]]]; \n    results = (ReleaseHold[ToExpression[#1, \
+StandardForm, HoldComplete]] & ) /@ boxes; \n    If[AnyTrue[results, \
+FailureQ], FirstCase[results, _Failure], Length[boxes]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"qsfiNotebookRoot = If[ValueQ[qsfiNotebookDirectory] \
+&& StringQ[qsfiNotebookDirectory] && \n    DirectoryQ[qsfiNotebookDirectory], \
+ExpandFileName[qsfiNotebookDirectory], NotebookDirectory[]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"QSFIPBH`$ProjectRoot = qsfiNotebookRoot; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"qsfiModuleLoads = \
+(QSFILoadNotebookCode[FileNameJoin[{qsfiNotebookRoot, \"Notebooks\", \n       \
+StringJoin[#1, \".nb\"]}]] & ) /@ {\"Core\", \"Propagators\", \"Projection\", \
+\"Figures\", \n    \"Workflow\"}; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"If[AnyTrue[qsfiModuleLoads, FailureQ], \
+FirstCase[qsfiModuleLoads, _Failure], \n  \
+QSFIPBH`RunStatusPanel[QSFIPBH`$RunState]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"qsfiTestResults = {}; "}]], "Input", 
+   InitializationCell -> True], Cell["Core", "Section"], 
+  Cell[BoxData[RowBox[{"coreTestRoot = QSFIPBH`$ProjectRoot; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreOracle = Import[FileNameJoin[{coreTestRoot, \
+\"tests\", \"oracle.json\"}], \"RawJSON\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreClose[actual_, expected_, tolerance_:10^(-10)] := \
+\n  TrueQ[NumericQ[actual] && NumericQ[expected] && Abs[N[actual - expected]] \
+<= \n     tolerance*Max[10.^(-30), Abs[N[expected]]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreVectorClose[actual_, expected_, \
+tolerance_:10^(-10)] := \n  TrueQ[Dimensions[actual] === Dimensions[expected] \
+&& \n    And @@ MapThread[coreClose[#1, #2, tolerance] & , {Flatten[actual], \
+Flatten[expected]}]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreAssociationClose[actual_, expected_, \
+tolerance_:10^(-10)] := \n  AssociationQ[actual] && And @@ \
+KeyValueMap[Function[{key, value}, \n      If[ListQ[value], \
+coreVectorClose[Lookup[actual, key, Missing[\"KeyAbsent\", key]], value, \n   \
+     tolerance], coreClose[Lookup[actual, key, Missing[\"KeyAbsent\", key]], \
+value, tolerance]]], \n     expected]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[coreClose[DensityVarianceResponse[], \n   \
+coreOracle[\"core\"][\"C2\"], 10^(-12)], True, \n  TestID -> \"C2 reproduces \
+original 80-node Hermite rule\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[coreClose[GaussianTargetArea[10^(-15), \n    \
+DensityVarianceResponse[]], coreOracle[\"core\"][\"gaussian_target_area\"]], \
+True, \n  TestID -> \"Gaussian target integrated area\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+coreClose[LogBetaGaussian[coreOracle[\"core\"][\"reference_area\"], \
+DensityVarianceResponse[]], \n   \
+coreOracle[\"core\"][\"gaussian_log_beta_at_reference\"]], True, \n  TestID \
+-> \"Gaussian logarithmic high-peak abundance\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{cfg \
+= ProductionConfig[]}, \n   cfg[\"lambda3_points\"] == 2001 && \
+cfg[\"lambda4_points\"] == 2001 && \n    cfg[\"nus\"] == {0.1, 0.3, 0.5, 1.} \
+&& coreClose[cfg[\"lambda2_over_h\"], 0.38]], True, \n  TestID -> \
+\"Production configuration preserves manuscript scan contract\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+FailureQ[ProductionConfig[Association[\"lambda3_points\" -> 2]]], True, \n  \
+TestID -> \"Invalid production scan resolution is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[AreaFromPeakHeight[-0.01]], True, \n  TestID -> \
+\"Nonpositive spectrum amplitude is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[DensityVarianceResponse[0.]], True, \n  TestID -> \
+\"Nonpositive lognormal width is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[UnitAreaProfile[-1.]], True, \n  TestID -> \
+\"Nonpositive spectrum momentum is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{fixture = \
+coreOracle[\"profiles\"][[j]], index = j}, \n   \
+VerificationTest[coreVectorClose[UnitAreaProfile[fixture[\"x\"], \
+fixture[\"delta\"], \n       fixture[\"k_peak_r\"]], fixture[\"profile\"], \
+10^(-12)] && \n     coreClose[DensityVarianceResponse[fixture[\"delta\"], \
+fixture[\"k_peak_r\"], 80], fixture[\"C2\"], \n      10^(-12)], True, TestID \
+-> StringJoin[\"Lognormal profile and 80-node C2 parameter case \", \n      \
+ToString[index]]]], {j, Length[coreOracle[\"profiles\"]]}]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{delta = \
+coreOracle[\"profiles\"][[j]][\"delta\"], peak = 0.01, \n    index = j}, \
+VerificationTest[coreClose[AreaFromPeakHeight[peak, delta], \n      \
+Sqrt[2*Pi]*delta*peak] && \
+coreClose[PeakHeightFromArea[AreaFromPeakHeight[peak, delta], \n       \
+delta], peak], True, TestID -> StringJoin[\"Peak-height and integrated-area \
+conversion \", \n      ToString[index]]]], {j, \
+Length[coreOracle[\"profiles\"]]}]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{fixture = \
+coreOracle[\"fixed_cumulant_cases\"][[j]], \n    index = j}, \
+VerificationTest[coreClose[QNGFromCumulants[fixture[\"S3\"], \
+fixture[\"S4\"]], \n      fixture[\"QNG\"]] && \
+coreClose[LogBetaGaussian[fixture[\"area\"], coreOracle[\"core\"][\"C2\"]], \
+\n      fixture[\"log_beta_gaussian\"]] && \
+coreClose[LogBetaNG[fixture[\"area\"], fixture[\"S3\"], \n       \
+fixture[\"S4\"], coreOracle[\"core\"][\"C2\"]], fixture[\"log_beta_ng\"]] && \
+\n     coreClose[RequiredPowerRatio[fixture[\"QNG\"]], \
+fixture[\"required_power_ratio\"]], True, \n    TestID -> \
+StringJoin[\"Fixed-cumulant abundance and required-power inversion \", \n     \
+ ToString[index]]]], {j, Length[coreOracle[\"fixed_cumulant_cases\"]]}]]"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreRows = ReadArchivedCoefficients[]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Length[coreRows], 12, \n  TestID -> \"All twelve archived \
+coefficients are loaded\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \n Table[With[{index = j}, \
+VerificationTest[coreAssociationClose[coreRows[[index]], \n     \
+coreOracle[\"corrected_coefficients\"][[index]], 10^(-12)], True, \n    \
+TestID -> StringJoin[\"Archived coefficient with c_phi normalization \
+correction \", \n      ToString[index]]]], {j, 12}]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{fixture = \
+coreOracle[\"cumulant_cases\"][[j]], index = j}, \n   \
+VerificationTest[coreAssociationClose[CumulantsFromCoefficients[\n      \
+coreRows[[fixture[\"row_index\"]]], fixture[\"lambda3\"], \
+fixture[\"lambda4\"], fixture[\"area\"], \n      fixture[\"mixing\"]], \
+fixture[\"expected\"]], True, \n    TestID -> StringJoin[\"Cumulant factors \
+and propagated independent errors \", ToString[index]]]], \n  {j, \
+Length[coreOracle[\"cumulant_cases\"]]}]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"coreExtrema = ComputeExtrema[coreRows]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Length[coreExtrema], 12, \n  TestID -> \"All twelve scan \
+extrema are computed\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \n Table[With[{index = j}, \
+VerificationTest[coreAssociationClose[coreExtrema[[index]], \n     \
+coreOracle[\"corrected_extrema\"][[index]]], True, \n    TestID -> \
+StringJoin[\"Corrected 2001-point coupling-axis optimum \", \
+ToString[index]]]], \n  {j, 12}]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[coreAssociationClose[ComputePBHConstraints[coreRows], \n   \
+coreOracle[\"pbh_constraints\"]], True, \n  TestID -> \"PBH conditional \
+constraint audit and mass conversion\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[With[{fixture = coreOracle[\"fit_template\"]}, \n   \
+coreAssociationClose[FitTemplate[fixture[\"template\"], fixture[\"data\"], \
+fixture[\"cov\"]], \n    fixture[\"expected\"]]], True, TestID -> \
+\"Correlated-covariance synthetic CMB amplitude fit\"]]"}]], "Input", 
+   InitializationCell -> True], Cell["CoreGuards", "Section"], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[RequiredPowerRatio[\"invalid\"], _Failure], True, \n  \
+TestID -> \"required-power-rejects-invalid-scalar\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[RequiredPowerRatio[{0., 1.}], _Failure], True, \n  \
+TestID -> \"required-power-rejects-vector-with-explicit-failure\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[LogBetaNG[-1., 0., 0., 0.1], _Failure], True, \n  \
+TestID -> \"log-beta-ng-propagates-invalid-area\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[LogBetaNG[0.1, \"invalid\", 0., 0.1], _Failure], \n  \
+True, TestID -> \"log-beta-ng-rejects-invalid-cumulant\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[GaussianTargetArea[0.1, 0.1, -1.], _Failure], \n  \
+True, TestID -> \"gaussian-inversion-rejects-negative-threshold\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[GaussianTargetArea[0.1, 0.1, 0.5, 0.], _Failure], \n  \
+True, TestID -> \"gaussian-inversion-rejects-zero-collapse-factor\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+MatchQ[CumulantsFromCoefficients[Association[\"C3_hat\" -> 1., \
+\"C4_contact_hat\" -> 1., \n     \"C4_exchange_hat\" -> 1.], \"invalid\", 1., \
+0.01], _Failure], True, \n  TestID -> \
+\"cumulants-reject-invalid-coupling\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[Module[{q \
+= 1.2, dc = 0.7, target = 10.^(-12), \n    gamma = 0.3, c2 = 0.08, area, \
+ratio, ng}, area = GaussianTargetArea[target, c2, dc, gamma]; \n    ratio = \
+RequiredPowerRatio[q, target, gamma, dc]; \n    ng = \
+LogBetaGaussian[ratio*area, c2, dc, gamma] + dc^3*(q/(6*ratio*area*c2)); \n   \
+ Abs[ng - Log[target]] < 1.*^-10], True, \n  TestID -> \
+\"configured-high-peak-inversion-threshold-and-gamma\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{arg \
+= 0.2^2/((2*Pi)/10.^30)}, \n   Abs[RequiredPowerRatio[6.] - \
+ProductLog[arg]/arg] < 1.*^-38], True, \n  TestID -> \
+\"required-power-boundary-analytic-limit\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[RequiredPowerRatio[6.001], _Failure], True, \n  \
+TestID -> \"required-power-rejects-beyond-boundary\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[Module[{c, \
+rows, extrema, area, xaxis, yaxis, \n    exhaustive, expected}, c = \
+ProductionConfig[Association[\"lambda3_points\" -> 5, \n       \
+\"lambda4_points\" -> 5, \"qng_max\" -> 3., \"delta_c\" -> 0.7]]; \n    rows \
+= (Association[\"r_s\" -> 1., \"nu_tilde\" -> #1[[1]], \"C3_hat\" -> 3., \n   \
+     \"C4_contact_hat\" -> #1[[2]], \"C4_exchange_hat\" -> #1[[3]]] & ) /@ \n \
+     {{0.1, 120., -50.}, {0.3, -120., 50.}, {0.5, 0., 120.}}; \n    area = \
+AreaFromPeakHeight[c[\"reference_peak_height\"], c[\"lognormal_delta\"]]; \n  \
+  xaxis = Subdivide[-1., 1., 4]; yaxis = xaxis; \n    exhaustive = \
+Table[Flatten[Table[c[\"lambda2_over_H\"]^3*row[\"C3_hat\"]*(x/Sqrt[area]) + \
+\n         c[\"delta_c\"]*c[\"lambda2_over_H\"]^4*((row[\"C4_contact_hat\"]*y \
++ row[\"C4_exchange_hat\"]*x^2)/\n           (4*area)), {y, yaxis}, {x, \
+xaxis}]], {row, rows}]; \n    expected = (Max[Select[#1, #1 <= c[\"qng_max\"] \
+& ]] & ) /@ exhaustive; \n    extrema = ComputeExtrema[rows, c]; \
+ListQ[extrema] && \n     Max[Abs[Lookup[extrema, \"Q_NG\"] - expected]] < \
+1.*^-12 && \n     And @@ (#1 <= c[\"qng_max\"] & ) /@ Lookup[extrema, \
+\"Q_NG\"]], True, \n  TestID -> \
+\"masked-extrema-match-independent-five-by-five-exhaustive-grid\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[Module[{c, \
+row}, \n   c = ProductionConfig[Association[\"lambda3_points\" -> 5, \
+\"lambda4_points\" -> 5, \n       \"lambda3_min\" -> 1., \"lambda3_max\" -> \
+2., \"lambda4_min\" -> 1., \"lambda4_max\" -> 2.]]; \n    row = \
+Association[\"r_s\" -> 1., \"nu_tilde\" -> 0.1, \"C3_hat\" -> 100., \
+\"C4_contact_hat\" -> 100., \n      \"C4_exchange_hat\" -> 100.]; \
+MatchQ[ComputeExtrema[{row}, c], _Failure]], True, \n  TestID -> \
+\"masked-extrema-fail-when-no-discrete-valid-point\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[Module[{c, \
+row, out}, \n   c = ProductionConfig[Association[\"lambda3_points\" -> 5, \
+\"lambda4_points\" -> 5, \"delta_c\" -> 1., \n       \"qng_max\" -> 6.]]; row \
+= Association[\"r_s\" -> 1., \"nu_tilde\" -> 0.1, \"C3_hat\" -> 3., \n      \
+\"C4_contact_hat\" -> 120., \"C4_exchange_hat\" -> -50.]; out = \
+ComputeExtrema[{row}, c]; \n    ListQ[out] && \
+NumberQ[First[out][\"peak_ratio\"]] && First[out][\"Q_NG\"] <= 3.], True, \n  \
+TestID -> \"extrema-enforce-configured-threshold-high-peak-bound\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+BlockRandom[SeedRandom[20261105]; Module[{c, area, rows, result, expected, \n \
+     axis = Subdivide[-1., 1., 4], qvalues}, \n     c = \
+ProductionConfig[Association[\"lambda3_points\" -> 5, \"lambda4_points\" -> \
+5, \n         \"qng_max\" -> 2.]]; area = \
+AreaFromPeakHeight[c[\"reference_peak_height\"]]; \n      rows = \
+Table[Association[\"r_s\" -> 1., \"nu_tilde\" -> 0.01*j, \n         \
+\"C3_hat\" -> RandomReal[{-4., 4.}], \"C4_contact_hat\" -> RandomReal[{-120., \
+120.}], \n         \"C4_exchange_hat\" -> RandomReal[{-120., 120.}]], {j, \
+40}]; \n      expected = Table[qvalues = \
+Flatten[Table[0.38^3*row[\"C3_hat\"]*(x/Sqrt[area]) + \n             \
+0.38^4*((row[\"C4_contact_hat\"]*y + row[\"C4_exchange_hat\"]*x^2)/(8*area)), \
+{y, axis}, \n            {x, axis}]]; Max[Select[qvalues, #1 <= 2. & ]], \
+{row, rows}]; \n      result = ComputeExtrema[rows, c]; ListQ[result] && \n   \
+    Max[Abs[Lookup[result, \"Q_NG\"] - expected]] < 1.*^-12]], True, \n  \
+TestID -> \"masked-extrema-forty-random-five-by-five-exhaustive-oracles\"]]"}]\
+], "Input", InitializationCell -> True], Cell["Figures", "Section"], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{rows = ReadArchivedCoefficients[], extrema, p, \n    \
+f}, extrema = ComputeExtrema[rows]; p = ComputePBHConstraints[rows]; \n    f \
+= Import[FileNameJoin[{$ProjectRoot, \"reference_outputs\", \"inputs\", \
+\"cmb_fit_fine.json\"}], \n      \"RawJSON\"]; And @@ (MatchQ[#1, _Graphics | \
+_Legended | _Labeled | _GraphicsGrid | \n         _GraphicsRow | _Grid] & ) \
+/@ {DiagramFigure[], ContributionFigure[extrema], \n       TailFigure[rows, \
+extrema], ObservationalFigure[p, f], CouplingGridFigure[rows, extrema, \n     \
+   \"peak_ratio\"], CouplingGridFigure[rows, extrema, \
+\"log10_beta_ratio\"]}], True, \n  TestID -> \"Six native figure constructors \
+evaluate with native functions\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{rows = Take[ReadArchivedCoefficients[], 4], \n    \
+extrema, graphic, colors}, extrema = ComputeExtrema[rows]; \n    graphic = \
+CouplingGridFigure[rows, extrema, \"peak_ratio\"]; \n    colors = \
+Cases[graphic, (VertexColors -> cc_List) :> cc, Infinity]; \n    \
+Length[colors] >= 4 && AllTrue[colors, Length[DeleteDuplicates[#1]] > 5 & ]], \
+True, \n  TestID -> \"Heat-map surfaces contain varying numerical vertex \
+colors\"]]"}]], "Input", InitializationCell -> True], 
+  Cell["Projection", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[SobolPoints[6, 3, 1729, False], \n  {{0., 0., 0., 0., 0., \
+0.}, {0.5, 0.5, 0.5, 0.5, 0.5, 0.5}, {0.75, 0.25, 0.25, 0.25, 0.75, 0.75}, \n \
+  {0.25, 0.75, 0.75, 0.75, 0.25, 0.25}, {0.375, 0.375, 0.625, 0.875, 0.375, \
+0.125}, \n   {0.875, 0.875, 0.125, 0.375, 0.875, 0.625}, {0.625, 0.125, \
+0.875, 0.625, 0.625, 0.875}, \n   {0.125, 0.625, 0.375, 0.125, 0.125, \
+0.375}}, \n  TestID -> \"Sobol first six dimensions agree with reference \
+unscrambled oracle\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[SobolPoints[6, 5, 1729, False][[{9, 16, 17, 32}]], \n  \
+{{0.1875, 0.3125, 0.9375, 0.4375, 0.5625, 0.3125}, {0.0625, 0.9375, 0.5625, \
+0.3125, 0.6875, \n    0.1875}, {0.09375, 0.46875, 0.46875, 0.65625, 0.28125, \
+0.96875}, \n   {0.03125, 0.53125, 0.90625, 0.96875, 0.96875, 0.78125}}, \n  \
+TestID -> \"Sobol direction recurrence through fifth binary digit matches \
+reference\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Take[SobolPoints[6, 5, 1729], 16] === \n   SobolPoints[6, 4, \
+1729], True, TestID -> \"Native LMS scrambling preserves nested prefixes\"]]"}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[SobolPoints[3, 3, 1729] =!= SobolPoints[3, 3, 1730], \n  \
+True, TestID -> \"Independent Sobol seeds change scramble\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Max[Abs[Flatten[MapRadialPoints[{0., 0.5, 1.}, ProjectionSettings[\n          \
+Association[\"radial_sampling\" -> \"log_uniform\"]]][[1]] - \n       \
+Sqrt[2.]*Exp[{-2.5, 0., 2.5}]]]] < 10^(-12), True, \n  TestID -> \"Log \
+uniform radial mapping has exact endpoints\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Abs[First[MapRadialPoints[{0.5}, ProjectionSettings[]]][[1]] - Sqrt[2.]] < \
+10^(-12), True, \n  TestID -> \"Importance radial median equals peak\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[SobolPoints[7, 3, 1]], True, \n  TestID -> \
+\"Unsupported Sobol dimension is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+FailureQ[ProjectionSettings[Association[\"lambda2_over_h\" -> 0.9]]], True, \
+\n  TestID -> \"Projection enforces EFT mixing ceiling\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+With[{c = Association[\"stage\" -> \"exchange\", \"coefficient\" -> 1., \n    \
+  \"coefficient_standard_error\" -> 0.1], r = Association[\"stage\" -> \
+\"exchange\", \n      \"coefficient\" -> 1.01, \"coefficient_standard_error\" \
+-> 0.1]}, \n   CompareStageEstimates[c, r][\"accepted\"]], False, \n  TestID \
+-> \"Statistical agreement does not hide insufficient sampling precision\"]]"}\
+]], "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionTestBundle = Association[\"nutilde\" -> \
+0.3, \"c_phi\" -> 1., \"c_sigma\" -> 1., \n   \"z_plus\" -> {1., 2.}, \
+\"ratios\" -> {0.1, 1.}, \"i_plus\" -> {{1., 2.}, {3., 4.}}, \n   \"h1_plus\" \
+-> {{1., 2.}, {3., 4.}}, \"h2c_plus\" -> {{1., 2.}, {3., 4.}}]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionTestSettings = \
+ProjectionSettings[Association[\"sobol_power_bispectrum\" -> 3, \n    \
+\"sobol_power_contact\" -> 2, \"sobol_power_exchange\" -> 2, \
+\"sobol_replicates\" -> 2, \n    \"sobol_min_replicates_four_point\" -> 2, \
+\"sobol_max_replicates_four_point\" -> 3, \n    \
+\"sobol_max_power_increment_four_point\" -> 1, \
+\"sobol_relative_error_target_four_point\" -> \n     10^(-16)]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{BispectrumSample}, \n   BispectrumSample[p_, b_, s_] \
+:= 2.; \n    With[{r = EstimateStage[projectionTestBundle, \"bispectrum\", \
+projectionTestSettings]}, \n     {r[\"raw_integral\"], \
+r[\"raw_standard_error\"], r[\"precision_accepted\"], \n      \
+r[\"completed_replicates\"]}]], {2., 0., True, 2}, \n  TestID -> \"Constant \
+sample has exact integral and zero replicated error\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{TrispectrumSample}, \n   TrispectrumSample[p_, b_, \
+s_, st_] := p[[1]]^2; \n    With[{r = EstimateStage[projectionTestBundle, \
+\"exchange\", projectionTestSettings]}, \n     \
+{r[\"attempted_sobol_powers\"], r[\"samples_per_replicate\"], \
+r[\"completed_replicates\"], \n      r[\"precision_accepted\"], \
+r[\"stop_reason\"]}]], {{2, 3}, 8, 3, False, \"maximum_power_reached\"}, \n  \
+TestID -> \"Four point sampling reaches nested power ceiling without false \
+acceptance\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{BispectrumSample}, \n   BispectrumSample[p_, b_, s_] \
+:= Failure[\"RatioDomain\", Association[]]; \n    With[{r = \
+EstimateStage[projectionTestBundle, \"bispectrum\", projectionTestSettings]}, \
+\n     {r[\"raw_integral\"], r[\"excluded_ratio_samples\"], \
+r[\"excluded_ratio_fraction\"]}]], \n  {0., 16, 1.}, TestID -> \n   \
+\"Excluded ratio samples remain zero contributions in full sample \
+denominator\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{BispectrumSample}, \n   BispectrumSample[p_, b_, s_] \
+:= Failure[\"NumericalKernel\", Association[]]; \n    \
+FailureQ[EstimateStage[projectionTestBundle, \"bispectrum\", \
+projectionTestSettings]]], True, \n  TestID -> \"Non domain kernel failures \
+abort projection\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{BispectrumSample}, \n   BispectrumSample[p_, b_, s_] \
+:= Indeterminate; FailureQ[EstimateStage[projectionTestBundle, \n      \
+\"bispectrum\", projectionTestSettings]]], True, \n  TestID -> \"Non finite \
+samples abort projection\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Block[{BispectrumSample}, \n   BispectrumSample[p_, b_, s_] \
+:= 2.; FailureQ[EstimateStage[Join[projectionTestBundle, \n       \
+Association[\"c_phi\" -> 0.3]], \"bispectrum\", projectionTestSettings]]], \
+True, \n  TestID -> \"Projection rejects sound speed mismatch between \
+evaluator and settings\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{path = FileNameJoin[{$TemporaryDirectory, \
+StringJoin[\"qsfi-projection-test-\", \n        CreateUUID[], \".wxf\"]}], a, \
+b, c}, \n   Block[{BispectrumSample}, BispectrumSample[p_, bb_, ss_] := 2.; \
+\n      a = EstimateStage[projectionTestBundle, \"bispectrum\", \
+projectionTestSettings, path]; \n      BispectrumSample[p_, bb_, ss_] := \
+Failure[\"MustNotReevaluate\", Association[]]; \n      b = \
+EstimateStage[projectionTestBundle, \"bispectrum\", \
+Join[projectionTestSettings, \n         \
+Association[\"sobol_relative_error_target_bispectrum\" -> 0.02]], path]; \n   \
+   c = EstimateStage[Join[projectionTestBundle, Association[\"i_plus\" -> \n  \
+         {{1., 2.}, {3., 4.001}}]], \"bispectrum\", projectionTestSettings, \
+path]]; \n    DeleteFile[path]; {a[\"raw_integral\"], b[\"raw_integral\"], \
+FailureQ[c]}], {2., 2., True}, \n  TestID -> \n   \"Native checkpoints resume \
+with changed stopping controls but reject changed scientific arrays\"]]"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionOracle = \
+Import[FileNameJoin[{QSFIPBH`$ProjectRoot, \"tests\", \"oracle.json\"}], \
+\"RawJSON\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionClose[a_, b_, tol_:10^(-9)] := \n  \
+TrueQ[NumberQ[a] && NumberQ[b] && Abs[a - b] <= tol*Max[Abs[b], 10^(-25)]]; "}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{f = \
+projectionOracle[\"radial_mapping\"][[j]], index = j}, \n   \
+VerificationTest[Module[{s = \
+ProjectionSettings[Association[\"radial_sampling\" -> f[\"mode\"]]], \n      \
+v}, v = MapRadialPoints[f[\"unit\"], s]; \n      And @@ \
+MapThread[projectionClose, {Flatten[v], Join[f[\"momenta\"], \
+f[\"jacobians\"]]}] && \n       And @@ MapThread[projectionClose, \
+{ReducedCumulantPrefactors[s], f[\"prefactors\"]}]], True, \n    TestID -> \
+StringJoin[\n      \"Radial mapping Jacobians and Fourier/angular prefactors \
+reference oracle \", \n      ToString[index]]]], {j, 2}]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"projectionPhysicalBundles := \
+projectionPhysicalBundles = \n   Module[{f = \
+projectionOracle[\"physical_grid_settings\"], s}, \n    s = \
+Association[\"wick_pivot\" -> f[\"pivot\"], \"wick_depth\" -> f[\"depth\"], \
+\n       \"tail_depth\" -> f[\"tail_depth\"], \"real_step\" -> \
+f[\"real_step\"], \n       \"vertical_step\" -> f[\"vertical_step\"], \
+\"nlog\" -> f[\"nlog\"], \"xmin\" -> f[\"xmin\"], \n       \"dps\" -> \
+f[\"dps\"], \"i_epsilon\" -> f[\"i_epsilon\"]]; \n     \
+Table[BuildRatioBundle[BuildMixedGrid[f[\"nu_tilde\"], \n        Join[s, \
+KeyTake[c, {\"c_phi\", \"c_sigma\"}]]], f[\"minimum_ratio\"], \
+f[\"node_count\"]], \n      {c, projectionOracle[\"physical_grid_cases\"]}]]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, Table[With[{ci = i, mi = \
+j}, \n   VerificationTest[Module[{c = \
+projectionOracle[\"physical_grid_cases\"][[ci]], f, b, s, r, \n      \
+expected}, f = c[\"projection_samples\"][[mi]]; b = \
+projectionPhysicalBundles[[ci]]; \n      s = \
+ProjectionSettings[Join[KeyTake[c, {\"c_phi\", \"c_sigma\"}], \n         \
+Association[\"radial_sampling\" -> f[\"mode\"]]]]; \n      r = \
+{BispectrumSample[{0.41, 0.63, 0.72}, b, s], TrispectrumSample[\n         \
+{0.32, 0.59, 0.74, 0.17, 0.68, 0.41}, b, s, \"contact\"], \
+TrispectrumSample[\n         {0.32, 0.59, 0.74, 0.17, 0.68, 0.41}, b, s, \
+\"exchange\"]}; \n      expected = Lookup[f, {\"bispectrum_raw\", \
+\"contact_raw\", \"exchange_raw\"}]; \n      And @@ \
+MapThread[projectionClose[#1, #2, 10^(-7)] & , {r, expected}]], True, \n    \
+TestID -> StringJoin[\"Physical 3D/6D projection samples reference oracle \
+case \", ToString[ci], \n      \" mapping \", ToString[mi]]]], {i, 3}, {j, \
+2}]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+With[{r = FitCMBTemplate[projectionPhysicalBundles[[3]], Association[\"x\" -> \
+{1.}, \"y\" -> {1.}, \n       \"data\" -> {0.}, \"cov\" -> {{1.}}], \
+Association[\"validate_standard_templates\" -> False]]}, \n   AssociationQ[r] \
+&& r[\"mean\"] == 0. && r[\"sigma\"] > 0 && \
+Length[r[\"template_per_lambda3\"]] == 1], \n  True, TestID -> \"Native CMB \
+full shape fit accepts supplied covariance with native functions\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, \
+StringJoin[\"qsfi-production-\", CreateUUID[]]}], \n    r}, r = \
+RunProduction[dir, Association[\"nus\" -> {0.3}, \"sound_speed_ratios\" -> \
+{1.}, \n       \"lambda3_points\" -> 3, \"lambda4_points\" -> 3, \
+\"wick_depth\" -> 2., \"tail_depth\" -> 4., \n       \"real_step\" -> 0.4, \
+\"vertical_step\" -> 0.4, \"nlog\" -> 12, \"dps\" -> 35, \n       \
+\"full_ratio_floor\" -> 0.02, \"full_ratio_nodes\" -> 16, \
+\"sobol_power_bispectrum\" -> 1, \n       \"sobol_power_contact\" -> 1, \
+\"sobol_power_exchange\" -> 1, \"sobol_replicates\" -> 2, \n       \
+\"sobol_min_replicates_four_point\" -> 2, \"sobol_max_replicates_four_point\" \
+-> 2, \n       \"sobol_max_power_increment_four_point\" -> 0, \
+\"sobol_relative_error_target_bispectrum\" -> \n        10.^10, \
+\"sobol_relative_error_target_four_point\" -> 10.^10, \"render_figures\" -> \
+False]]; \n    With[{answer = AssociationQ[r] && Length[r[\"coefficients\"]] \
+== 1 && \n         !TrueQ[r[\"manuscript_usable\"]] && \
+FileExistsQ[FileNameJoin[{dir, \"coefficients.csv\"}]]}, \n     \
+DeleteDirectory[dir, DeleteContents -> True]; answer]], True, \n  TestID -> \
+\"Reduced real-kernel production launcher exports native files and cannot \
+claim \\\nmanuscript precision\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, StringJoin[\"qsfi-resume-\", \
+CreateUUID[]]}], \n    controls, a, b, chunk, row, area, expected}, \n   \
+controls = Association[\"nus\" -> {0.3}, \"sound_speed_ratios\" -> {1.}, \
+\"lambda3_points\" -> 3, \n      \"lambda4_points\" -> 3, \"wick_depth\" -> \
+2., \"tail_depth\" -> 4., \"real_step\" -> 0.4, \n      \"vertical_step\" -> \
+0.4, \"nlog\" -> 12, \"dps\" -> 35, \"ratio_floor\" -> 0.02, \"ratio_nodes\" \
+-> 5, \n      \"sobol_power_bispectrum\" -> 1, \"sobol_power_contact\" -> 1, \
+\"sobol_power_exchange\" -> 1, \n      \"sobol_replicates\" -> 2, \
+\"sobol_min_replicates_four_point\" -> 2, \n      \
+\"sobol_max_replicates_four_point\" -> 2, \
+\"sobol_max_power_increment_four_point\" -> 0, \n      \
+\"sobol_relative_error_target_bispectrum\" -> 10.^10, \n      \
+\"sobol_relative_error_target_four_point\" -> 10.^10, \"generate_figures\" -> \
+False]; \n    a = RunProduction[dir, controls]; b = Block[{BuildMixedGrid, \
+MixedPropagator, BispectrumSample, \n       TrispectrumSample}, \
+BuildMixedGrid[___] := Failure[\"MustNotRebuild\", Association[]]; \n       \
+MixedPropagator[___] := Failure[\"MustNotRebuild\", Association[]]; \n       \
+BispectrumSample[___] := Failure[\"MustNotResample\", Association[]]; \n      \
+ TrispectrumSample[___] := Failure[\"MustNotResample\", Association[]]; \n    \
+   RunProduction[dir, controls]]; row = First[a[\"coefficients\"]]; \n    \
+chunk = Import[First[a[\"scan_chunks\"]][\"file\"], \"WXF\"]; area = \
+AreaFromPeakHeight[0.01]; \n    expected = \
+Table[CumulantsFromCoefficients[row, l3, l4, area][\"QNG\"], {l4, {-1., 0., \
+1.}}, \n      {l3, {-1., 0., 1.}}]; \n    With[{ok = AssociationQ[b] && \
+a[\"coefficients\"] === b[\"coefficients\"] && \n        \
+Max[Abs[Flatten[chunk[\"Q_NG\"] - expected]]] < 10^(-10) && \n        \
+Dimensions[chunk[\"S4_standard_error\"]] == {3, 3}}, \n     \
+DeleteDirectory[dir, DeleteContents -> True]; ok]], True, \n  TestID -> \n   \
+\"Production resumes scientific caches and stage checkpoints and exports true \
+coupling grid\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, StringJoin[\"qsfi-refuse-\", \
+CreateUUID[]]}], r, \n    manifest, ok}, r = RunProduction[dir, \
+Association[\"nus\" -> {0.3}, \"sound_speed_ratios\" -> {1.}, \n       \
+\"lambda3_points\" -> 3, \"lambda4_points\" -> 3, \"wick_depth\" -> 2., \
+\"tail_depth\" -> 4., \n       \"real_step\" -> 0.4, \"vertical_step\" -> \
+0.4, \"nlog\" -> 12, \"dps\" -> 35, \n       \"ratio_floor\" -> 0.02, \
+\"ratio_nodes\" -> 5, \"sobol_power_bispectrum\" -> 1, \n       \
+\"sobol_power_contact\" -> 1, \"sobol_power_exchange\" -> 1, \
+\"sobol_replicates\" -> 2, \n       \"sobol_min_replicates_four_point\" -> 2, \
+\"sobol_max_replicates_four_point\" -> 2, \n       \
+\"sobol_max_power_increment_four_point\" -> 0, \
+\"sobol_relative_error_target_bispectrum\" -> \n        10.^(-100), \
+\"sobol_relative_error_target_four_point\" -> 10.^(-100), \n       \
+\"generate_figures\" -> False]]; manifest = \n     Import[FileNameJoin[{dir, \
+\"production_manifest.json\"}], \"RawJSON\"]; \n    ok = FailureQ[r] && \
+manifest[\"status\"] == \"provisional_precision_rejected\" && \n       \
+!TrueQ[manifest[\"manuscript_usable\"]] &&  !DirectoryQ[FileNameJoin[{dir, \
+\"scans\"}]]; \n    DeleteDirectory[dir, DeleteContents -> True]; ok], True, \
+\n  TestID -> \n   \"Production refuses provisional sampling precision and \
+saves honest resumable metadata\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, StringJoin[\"qsfi-cmb-\", \
+CreateUUID[]]}], r, ok}, \n   r = RunCMBFit[dir, Association[\"x\" -> {0.5, \
+0.75, 1.}, \"y\" -> {1., 0.75, 1.}, \n       \"data\" -> {0., 0., 0.}, \
+\"cov\" -> IdentityMatrix[3]], \n      \
+Association[\"validate_standard_templates\" -> False, \"wick_depth\" -> 2., \
+\"tail_depth\" -> 4., \n       \"real_step\" -> 0.4, \"vertical_step\" -> \
+0.4, \"nlog\" -> 12, \"dps\" -> 35]]; \n    ok = AssociationQ[r] && \
+r[\"n_bins\"] == 3 && r[\"mean\"] == 0. && r[\"sigma\"] > 0 && \n      \
+FileExistsQ[FileNameJoin[{dir, \"cmb_fit_coarse.json\"}]] && \n      \
+FileExistsQ[FileNameJoin[{dir, \"cmb_template_coarse.wxf\"}]]; \n    \
+DeleteDirectory[dir, DeleteContents -> True]; ok], True, \n  TestID -> \
+\"Fresh direct-ratio CMB grid fitting exports native template and fit\"]]"}]]\
+, "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, \
+StringJoin[\"qsfi-convergence-\", CreateUUID[]]}], \n    r, ok}, r = \
+RunExchangeConvergence[dir, Association[\"wick_depth\" -> 2., \"tail_depth\" \
+-> 4., \n       \"real_step\" -> 0.4, \"vertical_step\" -> 0.4, \"nlog\" -> \
+12, \"dps\" -> 35, \n       \"ratio_floor\" -> 0.02, \"fixed_replicates\" -> \
+2, \"numerical_cases\" -> \n        {Association[\"label\" -> \"m1_n5\", \
+\"sobol_power\" -> 1, \"ratio_nodes\" -> 5], \n         Association[\"label\" \
+-> \"m2_n5\", \"sobol_power\" -> 2, \"ratio_nodes\" -> 5]}]]; \n    ok = \
+AssociationQ[r] && Length[r[\"estimates\"]] == 2 && \n      \
+FileExistsQ[FileNameJoin[{dir, \"r3_nu0p1_exchange_convergence.json\"}]] && \
+\n       !TrueQ[r[\"manuscript_usable\"]]; If[DirectoryQ[dir], \
+DeleteDirectory[dir, \n      DeleteContents -> True]]; ok], True, \n  TestID \
+-> \"Native exchange convergence driver exports actual refined projection \
+estimates\"]]"}]], "Input", InitializationCell -> True], 
+  Cell["Propagators", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propReference = ImportString[\"{\\n  \\\"0.3\\\": \
+{\\n    \\\"Cnu\\\": [\\n      1.2254408664799123,\\n      \\\n0.0\\n    \
+],\\n    \\\"z\\\": [\\n      [\\n        0.001,\\n        0.0\\n      ],\\n  \
+    [\\n        \\\n0.0026826957952797246,\\n        0.0\\n      ],\\n      \
+[\\n        0.0071968567300115215,\\n        \\\n0.0\\n      ],\\n      [\\n  \
+      0.019306977288832496,\\n        0.0\\n      ],\\n      [\\n        \
+\\\n0.0517947467923121,\\n        0.0\\n      ],\\n      [\\n        \
+0.13894954943731375,\\n        0.0\\n    \\\n  ],\\n      [\\n        \
+0.3727593720314938,\\n        0.0\\n      ],\\n      [\\n        1.0,\\n      \
+  \\\n0.0\\n      ],\\n      [\\n        1.25,\\n        0.0\\n      ],\\n    \
+  [\\n        1.5,\\n        0.0\\n  \\\n    ],\\n      [\\n        1.5,\\n   \
+     -0.25\\n      ],\\n      [\\n        1.5,\\n        -0.5\\n      \
+\\\n],\\n      [\\n        1.5,\\n        -0.75\\n      ],\\n      [\\n       \
+ 1.5,\\n        -1.0\\n      ],\\n \\\n     [\\n        1.5,\\n        \
+-1.25\\n      ],\\n      [\\n        1.5,\\n        -1.5\\n      ],\\n      \
+\\\n[\\n        1.5,\\n        -1.75\\n      ],\\n      [\\n        1.5,\\n   \
+     -2.0\\n      ]\\n    ],\\n    \\\n\\\"I\\\": [\\n      [\\n        \
+-2.2530067271628266e-05,\\n        2.9359977134862583e-06\\n      ],\\n     \
+\\\n [\\n        -0.00028050187803590093,\\n        \
+-1.0610383393231764e-05\\n      ],\\n      [\\n        \
+\\\n-0.001780060286183011,\\n        -0.0001387706372774793\\n      ],\\n     \
+ [\\n        \\\n-0.008678023105920881,\\n        -0.0008684618102348621\\n   \
+   ],\\n      [\\n        \\\n-0.035061180004114643,\\n        \
+-0.004027292463168258\\n      ],\\n      [\\n        \
+\\\n-0.1197243776035617,\\n        -0.01408889451125114\\n      ],\\n      \
+[\\n        \\\n-0.3555272090593844,\\n        -0.025083865131389018\\n      \
+],\\n      [\\n        \\\n-1.0168152918282163,\\n        \
+0.1752111419562306\\n      ],\\n      [\\n        -1.2118009711830415,\\n \
+\\\n       0.3634371123957817\\n      ],\\n      [\\n        \
+-1.350874368468873,\\n        \\\n0.6082549260119238\\n      ],\\n      [\\n  \
+      -1.1152725933013243,\\n        0.6890379382107664\\n   \\\n   ],\\n     \
+ [\\n        -0.9372807598333562,\\n        0.7370494969433948\\n      ],\\n  \
+    [\\n       \\\n -0.8044775793254082,\\n        0.7603143969009452\\n      \
+],\\n      [\\n        \\\n-0.7063300307920105,\\n        \
+0.7644194792723185\\n      ],\\n      [\\n        -0.6339604273828156,\\n \
+\\\n       0.7535421062847217\\n      ],\\n      [\\n        \
+-0.5800393839790701,\\n        \\\n0.7310398011671515\\n      ],\\n      [\\n \
+       -0.5386790475191596,\\n        0.6997272230941426\\n   \\\n   ],\\n    \
+  [\\n        -0.5052744137855743,\\n        0.6619736358430277\\n      ]\\n  \
+  ],\\n    \\\n\\\"Iratio\\\": [\\n      [\\n        \
+4.595770986441868e-06,\\n        1.2846607800215332e-07\\n      ],\\n  \\\n   \
+ [\\n        3.888626913397978e-06,\\n        4.050540590685604e-08\\n      \
+],\\n      [\\n        \\\n-6.0395520384037524e-05,\\n        \
+-2.166506651099205e-06\\n      ],\\n      [\\n        \
+\\\n-0.0005552030962330162,\\n        -1.754471848979283e-05\\n      ],\\n    \
+  [\\n        \\\n-0.0032222810897565486,\\n        -9.38554537892486e-05\\n  \
+    ],\\n      [\\n        \\\n-0.01487507184445758,\\n        \
+-0.0003855824550960443\\n      ],\\n      [\\n        \
+\\\n-0.05757886500732673,\\n        -0.0011312848818905116\\n      ],\\n      \
+[\\n        \\\n-0.19073241822199882,\\n        -0.0005246692024156319\\n     \
+ ],\\n      [\\n        \\\n-0.24285947702462946,\\n        \
+0.0011753635989031853\\n      ],\\n      [\\n        \
+\\\n-0.29389935038430093,\\n        0.0038639338358580754\\n      ],\\n      \
+[\\n        \\\n-0.29130059149343923,\\n        0.053608979494874226\\n      \
+],\\n      [\\n        \\\n-0.2900209247205218,\\n        \
+0.10227243284526806\\n      ],\\n      [\\n        \
+\\\n-0.2902217510032373,\\n        0.14979528109206938\\n      ],\\n      \
+[\\n        \\\n-0.29205749411080606,\\n        0.1960402882212384\\n      \
+],\\n      [\\n        \\\n-0.2956306601996997,\\n        \
+0.24080710110031203\\n      ],\\n      [\\n        \
+\\\n-0.30096952586790493,\\n        0.2838658647261141\\n      ],\\n      \
+[\\n        \\\n-0.3080281411865603,\\n        0.3249905107602545\\n      \
+],\\n      [\\n        \\\n-0.31669950316825235,\\n        \
+0.36398224506520893\\n      ]\\n    ],\\n    \\\"bispectrum\\\": \
+\\\n-0.0006934611911853402,\\n    \\\"contact\\\": -7.287375128292467e-07,\\n \
+   \\\"exchange\\\": \\\n-1.270171760366034e-06,\\n    \\\"squeezed\\\": [\\n \
+     0.010314938865728394,\\n      \\\n-0.08107202269143007,\\n      [\\n     \
+   0.020230819196625158,\\n        0.05746566983947264\\n      \\\n],\\n      \
+[\\n        -0.009915880330896763,\\n        -0.02360635285195743\\n      \
+]\\n    ],\\n    \\\n\\\"triangular\\\": [\\n      0.6119170828846396,\\n     \
+ 0.277207205156917,\\n      [\\n        \\\n1.255468168417189,\\n        \
+1.036117267783339\\n      ],\\n      [\\n        -0.6435510855325492,\\n    \
+\\\n    1.313324472940256\\n      ]\\n    ],\\n    \\\"collapsed\\\": [\\n    \
+  -0.0004550568433695092,\\n      \\\n-0.0005537565705715341,\\n      [\\n    \
+    -0.0008480442238277094,\\n        0.0004566669369678904\\n  \\\n    ],\\n \
+     [\\n        0.0003929873804582001,\\n        -9.708963360364375e-05\\n   \
+   ]\\n    ]\\n  \\\n},\\n  \\\"1.0\\\": {\\n    \\\"Cnu\\\": [\\n      \
+0.9989836498085939,\\n      0.0\\n    ],\\n    \\\"z\\\": [\\n      \\\n[\\n  \
+      0.001,\\n        0.0\\n      ],\\n      [\\n        \
+0.0026826957952797246,\\n        0.0\\n    \\\n  ],\\n      [\\n        \
+0.0071968567300115215,\\n        0.0\\n      ],\\n      [\\n        \
+\\\n0.019306977288832496,\\n        0.0\\n      ],\\n      [\\n        \
+0.0517947467923121,\\n        0.0\\n   \\\n   ],\\n      [\\n        \
+0.13894954943731375,\\n        0.0\\n      ],\\n      [\\n        \
+\\\n0.3727593720314938,\\n        0.0\\n      ],\\n      [\\n        1.0,\\n  \
+      0.0\\n      ],\\n      [\\n \\\n       1.25,\\n        0.0\\n      \
+],\\n      [\\n        1.5,\\n        0.0\\n      ],\\n      [\\n        \
+\\\n1.5,\\n        -0.25\\n      ],\\n      [\\n        1.5,\\n        \
+-0.5\\n      ],\\n      [\\n        \\\n1.5,\\n        -0.75\\n      ],\\n    \
+  [\\n        1.5,\\n        -1.0\\n      ],\\n      [\\n        \\\n1.5,\\n  \
+      -1.25\\n      ],\\n      [\\n        1.5,\\n        -1.5\\n      ],\\n  \
+    [\\n        \\\n1.5,\\n        -1.75\\n      ],\\n      [\\n        \
+1.5,\\n        -2.0\\n      ]\\n    ],\\n    \\\"I\\\": [\\n \\\n     [\\n    \
+    -2.111205866070317e-05,\\n        3.794539879263392e-06\\n      ],\\n     \
+ [\\n        \\\n-0.00024147536366260974,\\n        \
+-1.1566452159313979e-05\\n      ],\\n      [\\n        \
+\\\n-0.001505384612814441,\\n        -0.00016266339025664523\\n      ],\\n    \
+  [\\n        \\\n-0.007305668718657624,\\n        -0.0010333210331845886\\n  \
+    ],\\n      [\\n        \\\n-0.02974515379018107,\\n        \
+-0.004810763750822472\\n      ],\\n      [\\n        \
+\\\n-0.10512886108201684,\\n        -0.016364041791669465\\n      ],\\n      \
+[\\n        \\\n-0.3453679396046128,\\n        -0.01603737342936674\\n      \
+],\\n      [\\n        \\\n-1.1640743712463073,\\n        \
+0.4784146279126275\\n      ],\\n      [\\n        -1.3864447618063227,\\n \
+\\\n       0.9180517336478049\\n      ],\\n      [\\n        \
+-1.4738729586430845,\\n        \\\n1.4848936196472922\\n      ],\\n      [\\n \
+       -0.9459344266585821,\\n        1.4423139241032579\\n   \\\n   ],\\n    \
+  [\\n        -0.5645752651754603,\\n        1.3488308044407633\\n      ],\\n \
+     [\\n       \\\n -0.29486960307478544,\\n        1.2298621392654319\\n    \
+  ],\\n      [\\n        \\\n-0.10930200909417659,\\n        \
+1.1012804466429802\\n      ],\\n      [\\n        \
+\\\n0.013762725501082318,\\n        0.9727417675545529\\n      ],\\n      \
+[\\n        \\\n0.09120040400758367,\\n        0.849917467892469\\n      \
+],\\n      [\\n        0.13600886310990434,\\n  \\\n      \
+0.7359388341488589\\n      ],\\n      [\\n        0.15804548015084202,\\n     \
+   \\\n0.6323151208933235\\n      ]\\n    ],\\n    \\\"Iratio\\\": [\\n      \
+[\\n        3.688005159265607e-06,\\n   \\\n     1.2876814806092138e-07\\n    \
+  ],\\n      [\\n        2.8995872266953338e-06,\\n        \
+\\\n3.0613510867107074e-08\\n      ],\\n      [\\n        \
+-5.052421249341251e-05,\\n        \\\n-2.248237573452532e-06\\n      ],\\n    \
+  [\\n        -0.0004597065605460515,\\n        \
+\\\n-1.7973533749432502e-05\\n      ],\\n      [\\n        \
+-0.0026737566630534696,\\n        \\\n-9.534967670776426e-05\\n      ],\\n    \
+  [\\n        -0.012473696822389281,\\n        \\\n-0.00038410509055486795\\n \
+     ],\\n      [\\n        -0.04959150414039831,\\n        \
+\\\n-0.000999116586674682\\n      ],\\n      [\\n        \
+-0.17540205394329386,\\n        \\\n0.0022327876389544405\\n      ],\\n      \
+[\\n        -0.22863143370790454,\\n        \\\n0.006563202917256955\\n      \
+],\\n      [\\n        -0.28303880991439967,\\n        \
+\\\n0.013170533558250609\\n      ],\\n      [\\n        \
+-0.2747670406012126,\\n        0.0666268521656664\\n \\\n     ],\\n      [\\n \
+       -0.2658985128513668,\\n        0.11761473506019247\\n      ],\\n      \
+[\\n    \\\n    -0.25679101561545487,\\n        0.166222312025117\\n      \
+],\\n      [\\n        \\\n-0.24777826503025982,\\n        \
+0.21246321157162987\\n      ],\\n      [\\n        \
+\\\n-0.2391340078863898,\\n        0.25628958053723705\\n      ],\\n      \
+[\\n        \\\n-0.23105472793605877,\\n        0.29762035474845844\\n      \
+],\\n      [\\n        \\\n-0.22366068231277889,\\n        \
+0.33636925174622406\\n      ],\\n      [\\n        \
+\\\n-0.21700773663764827,\\n        0.37246468092048995\\n      ]\\n    ],\\n \
+   \\\"bispectrum\\\": \\\n-0.013400128119938291,\\n    \\\"contact\\\": \
+-6.374349986691428e-06,\\n    \\\"exchange\\\": \
+\\\n-1.8465239259209833e-05,\\n    \\\"squeezed\\\": [\\n      \
+0.023787075859013428,\\n      \\\n-0.033722224792904716,\\n      [\\n        \
+0.03158165317892638,\\n        0.029360844683617368\\n      \\\n],\\n      \
+[\\n        -0.0077945773199129525,\\n        -0.00436138010928735\\n      \
+]\\n    ],\\n    \\\n\\\"triangular\\\": [\\n      0.9448006921605854,\\n     \
+ 0.5867608100851889,\\n      [\\n        \\\n1.019166854707389,\\n        \
+0.16683425035302385\\n      ],\\n      [\\n        -0.07436616254680367,\\n \
+\\\n       0.7535950604382128\\n      ]\\n    ],\\n    \\\"collapsed\\\": \
+[\\n      -0.0001508778857158419,\\n   \\\n   -0.0011315843627069898,\\n      \
+[\\n        -0.00032784089105498054,\\n        \\\n0.0010032257775442312\\n   \
+   ],\\n      [\\n        0.00017696300533913864,\\n        \
+\\\n-0.00012835858516275868\\n      ]\\n    ]\\n  },\\n  \\\"3.0\\\": {\\n    \
+\\\"Cnu\\\": [\\n      \\\n0.6837259453098686,\\n      0.0\\n    ],\\n    \
+\\\"z\\\": [\\n      [\\n        0.001,\\n        0.0\\n      \\\n],\\n      \
+[\\n        0.0026826957952797246,\\n        0.0\\n      ],\\n      [\\n      \
+  \\\n0.0071968567300115215,\\n        0.0\\n      ],\\n      [\\n        \
+0.019306977288832496,\\n        \\\n0.0\\n      ],\\n      [\\n        \
+0.0517947467923121,\\n        0.0\\n      ],\\n      [\\n        \
+\\\n0.13894954943731375,\\n        0.0\\n      ],\\n      [\\n        \
+0.3727593720314938,\\n        0.0\\n    \\\n  ],\\n      [\\n        1.0,\\n  \
+      0.0\\n      ],\\n      [\\n        1.25,\\n        0.0\\n      ],\\n \
+\\\n     [\\n        1.5,\\n        0.0\\n      ],\\n      [\\n        \
+1.5,\\n        -0.25\\n      ],\\n      \\\n[\\n        1.5,\\n        \
+-0.5\\n      ],\\n      [\\n        1.5,\\n        -0.75\\n      ],\\n      \
+[\\n  \\\n      1.5,\\n        -1.0\\n      ],\\n      [\\n        1.5,\\n    \
+    -1.25\\n      ],\\n      [\\n       \\\n 1.5,\\n        -1.5\\n      \
+],\\n      [\\n        1.5,\\n        -1.75\\n      ],\\n      [\\n        \
+\\\n1.5,\\n        -2.0\\n      ]\\n    ],\\n    \\\"I\\\": [\\n      [\\n    \
+    -1.6414183383523115e-05,\\n      \\\n  1.2119204616574881e-05\\n      \
+],\\n      [\\n        -0.00019750233731660944,\\n        \
+\\\n1.584237409528478e-05\\n      ],\\n      [\\n        \
+-0.0012557474938968464,\\n        \\\n-0.00011101500745787107\\n      ],\\n   \
+   [\\n        -0.006222538692211257,\\n        \\\n-0.0011582030193645803\\n \
+     ],\\n      [\\n        -0.026180512789669375,\\n        \
+\\\n-0.006685985431283381\\n      ],\\n      [\\n        \
+-0.0983213610108128,\\n        \\\n-0.026744189983807707\\n      ],\\n      \
+[\\n        -0.35299462281019706,\\n        \\\n-0.02784007587450328\\n      \
+],\\n      [\\n        -0.9472266776009439,\\n        1.0123684097626267\\n \
+\\\n     ],\\n      [\\n        -0.7721804370125995,\\n        \
+1.6513714701534512\\n      ],\\n      [\\n     \\\n   -0.2780303155005317,\\n \
+       2.2282386102434906\\n      ],\\n      [\\n        \
+\\\n0.10419335851213751,\\n        1.6967030969877848\\n      ],\\n      [\\n \
+       0.31912832079109016,\\n \\\n       1.3021810191403773\\n      ],\\n    \
+  [\\n        0.42839562148679516,\\n        \\\n1.0035022088155805\\n      \
+],\\n      [\\n        0.47122508537874375,\\n        0.774883726545624\\n    \
+\\\n  ],\\n      [\\n        0.47304768186338964,\\n        \
+0.5988789297326976\\n      ],\\n      [\\n        \\\n0.4505344829762894,\\n  \
+      0.46299088979828773\\n      ],\\n      [\\n        \
+0.41463931412330063,\\n \\\n       0.3579394771709307\\n      ],\\n      [\\n \
+       0.37250414557619044,\\n        \\\n0.27668891311407384\\n      ]\\n    \
+],\\n    \\\"Iratio\\\": [\\n      [\\n        2.39728930964923e-06,\\n   \
+\\\n     1.2802419143153794e-07\\n      ],\\n      [\\n        \
+1.4310692101106344e-06,\\n        \\\n-2.6647761942563333e-08\\n      ],\\n   \
+   [\\n        -3.6970331209368166e-05,\\n        \
+\\\n-2.6751702723837267e-06\\n      ],\\n      [\\n        \
+-0.0003264505702068472,\\n        \\\n-2.013582754356201e-05\\n      ],\\n    \
+  [\\n        -0.0019040821680007295,\\n        \
+\\\n-0.00010313751759478562\\n      ],\\n      [\\n        \
+-0.00908958824114355,\\n        \\\n-0.0003890255402268001\\n      ],\\n      \
+[\\n        -0.038258953861354465,\\n        \\\n-0.0006246747885977579\\n    \
+  ],\\n      [\\n        -0.15257928309664873,\\n        \
+\\\n0.010208570409001768\\n      ],\\n      [\\n        \
+-0.20575405359296325,\\n        \\\n0.021913794525606774\\n      ],\\n      \
+[\\n        -0.26210159101001085,\\n        \\\n0.03928903834116393\\n      \
+],\\n      [\\n        -0.2406339638551962,\\n        0.09360386642447577\\n \
+\\\n     ],\\n      [\\n        -0.2176110876198877,\\n        \
+0.14223145619749394\\n      ],\\n      [\\n    \\\n    \
+-0.1936956996874656,\\n        0.18584512595845107\\n      ],\\n      [\\n    \
+    \\\n-0.16946640127176715,\\n        0.22498323170111667\\n      ],\\n     \
+ [\\n        \\\n-0.14540168916855348,\\n        0.2600689300146363\\n      \
+],\\n      [\\n        \\\n-0.12187582626120906,\\n        \
+0.29143926536170356\\n      ],\\n      [\\n        \
+\\\n-0.09916649005685281,\\n        0.31937288654318846\\n      ],\\n      \
+[\\n        \\\n-0.0774690678503728,\\n        0.3441110932817142\\n      \
+]\\n    ],\\n    \\\"bispectrum\\\": \\\n0.10589814318408211,\\n    \
+\\\"contact\\\": -0.0004440021244517519,\\n    \\\"exchange\\\": \
+\\\n-0.0034851533542622944,\\n    \\\"squeezed\\\": [\\n      \
+0.01886027675632162,\\n      \\\n-0.003499061989920811,\\n      [\\n        \
+0.014154180857823868,\\n        0.004640711845116838\\n      \\\n],\\n      \
+[\\n        0.004706095898497752,\\n        0.001141649855196027\\n      ]\\n \
+   ],\\n    \\\n\\\"triangular\\\": [\\n      0.3375394381948058,\\n      \
+0.30485132865820336,\\n      [\\n        \\\n0.25774910367472265,\\n        \
+-0.19140921602841893\\n      ],\\n      [\\n        \
+\\\n0.07979033452008318,\\n        0.11344211262978444\\n      ]\\n    ],\\n  \
+  \\\"collapsed\\\": [\\n      \\\n-1.3669380769323536e-05,\\n      \
+-0.00013677552317090897,\\n      [\\n        2.446974059564465e-05,\\n \\\n   \
+    0.0001832135243542021\\n      ],\\n      [\\n        \
+-3.813912136496819e-05,\\n        \\\n4.6438001183293126e-05\\n      ]\\n    \
+]\\n  }\\n}\", \"RawJSON\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propComplex[x_List] /; Length[x] == 2 && And @@ \
+NumberQ /@ x := x[[1]] + I*x[[2]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propClose[a_, b_, tolerance_:2.*^-9] := NumberQ[a] && \
+NumberQ[b] && \n   Abs[a - b] <= tolerance*Max[1.*^-12, Abs[b]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propSettings = Association[\"wick_pivot\" -> 1.5, \
+\"wick_depth\" -> 2., \"tail_depth\" -> 4., \n   \"real_step\" -> 0.25, \
+\"vertical_step\" -> 0.25, \"xmin\" -> 0.001, \"nlog\" -> 8, \"dps\" -> 30, \
+\n   \"i_epsilon\" -> 0.]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[QSFIPBH`CumulativeTrapezoid[{1., 3., 5.}, {0., 1., 2.}], \n  \
+{0., 2., 6.}, TestID -> \"cumulative-trapezoid\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[QSFIPBH`ReverseCumulativeTrapezoid[{1.*^30, 1., 1.}, \n    \
+{0., 1., 2.}][[2]], 1., TestID -> \"reverse-tail-avoids-subtraction\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`ContourTrapezoid[{1., 2.}, {1.}], \n   \
+_Failure], True, TestID -> \"quadrature-shape-validation\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`GeneralizedCNu[0.5*I, -1.], _Failure], \n  \
+True, TestID -> \"cnu-domain\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[propClose[QSFIPBH`GeneralizedCNu[0.5*I, ToExpression[r], 0., 30], \n    \
+ propComplex[propReference[r][\"Cnu\"]]], {r, {\"0.3\", \"1.0\", \"3.0\"}}], \
+True, \n  TestID -> \"cnu-three-sound-speed-branches\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propGrids = Association[Table[r -> \
+QSFIPBH`BuildMixedGrid[0.5, Join[propSettings, \n       Association[\"c_phi\" \
+-> If[r == \"0.3\", 0.3, 1.], \"c_sigma\" -> If[r == \"3.0\", 1./3, 1.]]]], \
+\n    {r, {\"0.3\", \"1.0\", \"3.0\"}}]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[propGrids[r][\"z_plus\"] - propComplex /@ \
+propReference[r][\"z\"]]] < 1.*^-13, \n    {r, Keys[propGrids]}], True, \
+TestID -> \"wick-contour-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[propGrids[r][\"Iplus\"] - propComplex /@ \
+propReference[r][\"I\"]]] < 2.*^-9, \n    {r, Keys[propGrids]}], True, TestID \
+-> \"mixed-propagator-three-sound-speeds\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[QSFIPBH`MixedPropagator[propGrids[r], 0.2][\"Iplus\"] - \n      \
+  propComplex /@ propReference[r][\"Iratio\"]]] < 2.*^-9, {r, \
+Keys[propGrids]}], True, \n  TestID -> \
+\"extended-argument-tail-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propBundles = Association[Table[r -> \
+QSFIPBH`BuildRatioBundle[propGrids[r], 0.02, 7], \n    {r, \
+Keys[propGrids]}]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`RatioEvaluate[propBundles[\"1.0\"], \n    \
+\"i_plus\", 0.001], Failure[\"RatioDomain\", _Association]], True, \n  TestID \
+-> \"ratio-domain-no-extrapolation\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{b = \
+propBundles[\"1.0\"]}, \n   Max[Abs[QSFIPBH`RatioEvaluate[b, \"i_plus\", \
+Sqrt[b[\"ratios\"][[2]]*b[\"ratios\"][[3]]]] - \n       (b[\"i_plus\"][[2]] + \
+b[\"i_plus\"][[3]])/2]] < 1.*^-12], True, \n  TestID -> \
+\"interpolation-linear-in-log-ratio\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[propClose[QSFIPBH`BispectrumShape[propBundles[r], 0.6, 0.8, 1.], \n     \
+propReference[r][\"bispectrum\"]], {r, Keys[propGrids]}], True, \n  TestID -> \
+\"full-bispectrum-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[propClose[QSFIPBH`ContactShape[propBundles[r], {1., 0.9, 0.8, 1.2}], \n \
+    propReference[r][\"contact\"]], {r, Keys[propGrids]}], True, \n  TestID \
+-> \"full-contact-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"propVectors = QSFIPBH`FourMomentumVectors[1., 0.9, 0.8, -0.2, 0.3, \
+1.1]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Max[Abs[Total[propVectors]]] < 1.*^-14, True, \n  TestID -> \
+\"four-momentum-closure\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[propClose[QSFIPBH`ExchangeShape[propBundles[r], propVectors], \n     \
+propReference[r][\"exchange\"]], {r, Keys[propGrids]}], True, \n  TestID -> \
+\"full-three-channel-exchange-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[Take[QSFIPBH`SqueezedCoefficients[propGrids[r]], 2] - \n        \
+Take[propReference[r][\"squeezed\"], 2]]] < 1.*^-9, {r, Keys[propGrids]}], \
+True, \n  TestID -> \"squeezed-diagnostics-reference-agreement\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[Take[QSFIPBH`TriangularCoefficients[propGrids[r]], 2] - \n      \
+  Take[propReference[r][\"triangular\"], 2]]] < 1.*^-8, {r, \
+Keys[propGrids]}], True, \n  TestID -> \
+\"triangular-diagnostics-reference-agreement\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[Max[Abs[Take[QSFIPBH`CollapsedCoefficients[propGrids[r]], 2] - \n       \
+ Take[propReference[r][\"collapsed\"], 2]]] < 1.*^-9, {r, Keys[propGrids]}], \
+True, \n  TestID -> \"collapsed-diagnostics-reference-agreement\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`BispectrumShape[propBundles[\"1.0\"], \n    \
+0.001, 1., 1.], Failure[\"RatioDomain\", _Association]], True, \n  TestID -> \
+\"shape-propagates-ratio-failure\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[And @@ \
+(StringLength[#1[\"scientific_hash\"]] == 64 & ) /@ \n    \
+Values[propBundles], True, TestID -> \"bundle-identity-hash\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{b = \
+propBundles[\"1.0\"]}, \n   propClose[QSFIPBH`BispectrumShape[b, 0.6, 0.8, \
+1.], QSFIPBH`BispectrumShape[b, 1.2, 1.6, 2.]]], \n  True, TestID -> \
+\"bispectrum-scale-invariance\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+MatchQ[QSFIPBH`RatioEvaluate[Association[\"ratios\" -> {0.1, 1.}, \"i_plus\" \
+-> {{1.}, {2.}, {3.}}], \n    \"i_plus\", 0.5], _Failure], True, TestID -> \
+\"malformed-ratio-table-fails-explicitly\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`SqueezedCoefficients[Association[]], \n   \
+_Failure], True, TestID -> \"incomplete-diagnostic-grid-fails-explicitly\"]]"}\
+]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[MatchQ[QSFIPBH`BispectrumShape[Association[], 1., 1., \n    \
+1.], _Failure], True, TestID -> \
+\"incomplete-shape-bundle-fails-explicitly\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{b = \
+propBundles[\"1.0\"]}, \n   propClose[QSFIPBH`ExchangeShape[b, propVectors], \
+QSFIPBH`ExchangeShape[b, \n      propVectors[[{4, 2, 1, 3}]]]] && \
+propClose[QSFIPBH`ExchangeShape[b, propVectors], \n     \
+QSFIPBH`ExchangeShape[b, 2*propVectors]]], True, \n  TestID -> \
+\"exchange-permutation-and-scale-invariance\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[With[{g = \
+propGrids[\"1.0\"]}, \n   Max[Abs[g[\"Iminus\"] - Conjugate[g[\"Iplus\"]]]] \
+== 0. && \n    Max[Abs[g[\"H1_minus\"] - Conjugate[g[\"H2c_plus\"]]]] == 0.], \
+True, \n  TestID -> \"minus-branch-conjugates-order-and-contour\"]]"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propAdditionalOracle = \
+Import[FileNameJoin[{QSFIPBH`$ProjectRoot, \"tests\", \"oracle.json\"}], \n   \
+\"RawJSON\"]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+(propClose[QSFIPBH`GeneralizedCNu[I*#1[\"nu_tilde\"], #1[\"ratio\"], \
+#1[\"i_epsilon\"], \n       #1[\"dps\"]], propComplex[#1[\"value\"]], \
+2.*^-11] & ) /@ \n    propAdditionalOracle[\"generalized_cnu\"], True, TestID \
+-> \"regulated-cnu-independent-oracle\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"propAdditionalSettings = With[{s = \
+propAdditionalOracle[\"physical_grid_settings\"]}, \n   \
+Association[\"wick_pivot\" -> s[\"pivot\"], \"wick_depth\" -> s[\"depth\"], \
+\n    \"tail_depth\" -> s[\"tail_depth\"], \"real_step\" -> s[\"real_step\"], \
+\n    \"vertical_step\" -> s[\"vertical_step\"], \"xmin\" -> s[\"xmin\"], \
+\"nlog\" -> s[\"nlog\"], \n    \"dps\" -> s[\"dps\"], \"i_epsilon\" -> \
+s[\"i_epsilon\"]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  And @@ \
+Table[With[{g = \
+QSFIPBH`BuildMixedGrid[propAdditionalOracle[\"physical_grid_settings\"][\n    \
+     \"nu_tilde\"], Join[propAdditionalSettings, KeyTake[case, {\"c_phi\", \
+\"c_sigma\"}]]]}, \n     And @@ Table[With[{p = QSFIPBH`MixedPropagator[g, \
+row[\"momentum_ratio\"]]}, \n        And @@ Table[Max[Abs[p[key] - \
+propComplex /@ row[key]]] <= \n           2.*^-9*Max[1., Max[Abs[propComplex \
+/@ row[key]]]], \n          {key, {\"Iplus\", \"H1_plus\", \"H2c_plus\"}}]], \
+{row, case[\"propagators\"]}]], \n    {case, \
+propAdditionalOracle[\"physical_grid_cases\"]}], True, \n  TestID -> \
+\"regulated-physical-propagators-independent-oracle\"]]"}]], "Input", 
+   InitializationCell -> True], Cell["Core covariance", "Section"], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{cov = {{2.*^15, 1.*^14 + 0.015625}, {1.*^14, 3.*^15}}, a, b}, \n   a \
+= QSFIPBH`FitTemplate[{1., 2.}, {0.4, -0.1}, cov]; \n    b = \
+QSFIPBH`FitTemplate[{1., 2.}, {0.4, -0.1}, (cov + Transpose[cov])/2]; \n    \
+AssociationQ[a] && AssociationQ[b] && Abs[a[\"mean\"] - b[\"mean\"]] < \
+10^(-12) && \n     Abs[a[\"sigma\"]/b[\"sigma\"] - 1] < 10^(-12)], True, \n  \
+TestID -> \"Covariance symmetry accepts roundoff relative to released data \
+scale\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[QSFIPBH`FitTemplate[{1., 2.}, {0.4, -0.1}, \n    \
+{{1., 0.2}, {0.3, 1.}}]], True, TestID -> \"Materially asymmetric covariance \
+remains rejected\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[FailureQ[QSFIPBH`FitTemplate[{1., 2.}, {0.4, -0.1}, \n    \
+{{1., 2.}, {2., 1.}}]], True, TestID -> \"Indefinite covariance remains \
+rejected\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationalCovarianceTestData = \
+Import[FileNameJoin[{QSFIPBH`$ProjectRoot, \"data\", \n     \"observations\", \
+\"planck_pr4_binned_shape.json\"}], \"RawJSON\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationalTemplateCoordinates = \
+Lookup[observationalCovarianceTestData, {\"x\", \"y\"}]^\n   ((4 - \
+0.9660499)/3); "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"observationalTemplateX = observationalTemplateCoordinates[[1]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"observationalTemplateY = observationalTemplateCoordinates[[2]]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationalTemplateTerms = \
+observationalTemplateX/observationalTemplateY + \n   observationalTemplateX + \
+observationalTemplateY + observationalTemplateY/\n    observationalTemplateX \
++ 1/observationalTemplateX + 1/observationalTemplateY; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationalTemplateSq = \
+observationalTemplateX^2/observationalTemplateY + \n   \
+observationalTemplateY^2/observationalTemplateX + \n   \
+1/(observationalTemplateX*observationalTemplateY); "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationalStandardTemplates = \
+{(observationalTemplateX^3 + observationalTemplateY^3 + 1)/\n    \
+(3*observationalTemplateX*observationalTemplateY), observationalTemplateTerms \
+- \n    observationalTemplateSq - 2, 3*observationalTemplateTerms - \
+3*observationalTemplateSq - 8}; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \n Table[With[{index = j, \
+expected = {{4., 5.6}, {-3.3, 46.9}, {-26.5, 24.9}}[[j]]}, \n   \
+VerificationTest[Module[{fit = \
+QSFIPBH`FitTemplate[observationalStandardTemplates[[index]], \n        \
+observationalCovarianceTestData[\"data\"], \
+observationalCovarianceTestData[\"cov\"]]}, \n     AssociationQ[fit] && \
+Abs[fit[\"mean\"] - expected[[1]]] < 0.07 && \n      Abs[fit[\"sigma\"] - \
+expected[[2]]] < 0.07], True, \n    TestID -> StringJoin[\"Released Planck \
+covariance native standard template \", \n      ToString[index]]]], {j, 3}]]"}\
+]], "Input", InitializationCell -> True], Cell["Production persistence", 
+   "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"persistenceControls = Association[\"nus\" -> {0.1, \
+0.3}, \"sound_speed_ratios\" -> {1.}, \n   \"lambda3_points\" -> 3, \
+\"lambda4_points\" -> 3, \"wick_depth\" -> 2., \"tail_depth\" -> 4., \n   \
+\"real_step\" -> 0.4, \"vertical_step\" -> 0.4, \"nlog\" -> 12, \"dps\" -> \
+35, \"ratio_floor\" -> 0.02, \n   \"ratio_nodes\" -> 5, \
+\"sobol_power_bispectrum\" -> 1, \"sobol_power_contact\" -> 1, \n   \
+\"sobol_power_exchange\" -> 1, \"sobol_replicates\" -> 2, \
+\"sobol_min_replicates_four_point\" -> 2, \n   \
+\"sobol_max_replicates_four_point\" -> 2, \
+\"sobol_max_power_increment_four_point\" -> 0, \n   \
+\"sobol_relative_error_target_bispectrum\" -> 10.^10, \
+\"sobol_relative_error_target_four_point\" -> \n    10.^10, \
+\"generate_figures\" -> False]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"persistenceDirectory[] := \
+FileNameJoin[{$TemporaryDirectory, StringJoin[\"qsfi-persist-\", \n     \
+CreateUUID[]]}]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], events = {}, r, \n    \
+saved, partial, manifest, ok}, \n   r = Block[{QSFIPBH`$RunReporter = \
+Function[e, AppendTo[events, e]; None]}, \n      RunProduction[dir, \
+persistenceControls]]; \n    saved = Quiet[Check[Import[FileNameJoin[{dir, \
+\"production_results.wxf\"}], \"WXF\"], $Failed]]; \n    partial = \
+Quiet[Check[Import[FileNameJoin[{dir, \"partial_results.wxf\"}], \"WXF\"], \
+$Failed]]; \n    manifest = Import[FileNameJoin[{dir, \
+\"production_manifest.json\"}], \"RawJSON\"]; \n    ok = AssociationQ[r] && \
+AssociationQ[saved] && Length[saved[\"coefficients\"]] == 2 && \n      \
+AssociationQ[partial] && Length[partial[\"coefficients\"]] == 2 && \n      \
+FileExistsQ[FileNameJoin[{dir, \"partial_coefficients.csv\"}]] && \n      \
+MemberQ[{\"production_complete\", \"custom_complete\"}, manifest[\"status\"]] \
+&& \n      AnyTrue[events, Lookup[#1, \"event\", None] == \"stage_start\" & ] \
+&& \n      AnyTrue[events, Lookup[#1, \"event\", None] == \
+\"replicate_complete\" & ] && \n      AnyTrue[events, Lookup[#1, \"event\", \
+None] == \"point_block\" && \n         Lookup[#1, \"sample_completed\", 0] == \
+Lookup[#1, \"sample_total\", -1] & ] && \n      AnyTrue[events, Lookup[#1, \
+\"event\", None] == \"case_saved\" && \n         Lookup[#1, \
+\"completed_cases\", 0] == 1 & ] && \n      AllTrue[Select[events, Lookup[#1, \
+\"phase\", None] == \"native_integration\" & ], \n       KeyExistsQ[#1, \
+\"current_case\"] && KeyExistsQ[#1, \"total_cases\"] & ]; \n    \
+DeleteDirectory[dir, DeleteContents -> True]; ok], True, \n  TestID -> \"Real \
+production saves partial and final reloadable results and emits case stage \
+\\\nreplicate sample progress\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], r, partial, \n    \
+manifest, resumed, ok}, \n   r = Block[{QSFIPBH`$RunReporter = Function[e, \
+If[Lookup[e, \"event\", None] == \"case_start\" && \n           Lookup[e, \
+\"current_case\", 0] == 2, Failure[\"ForcedSecondCaseFailure\", \n           \
+Association[\"MessageTemplate\" -> \"test callback failure\"]], None]]}, \n   \
+   RunProduction[dir, persistenceControls]]; \n    partial = \
+Quiet[Check[Import[FileNameJoin[{dir, \"partial_results.wxf\"}], \"WXF\"], \
+$Failed]]; \n    manifest = Import[FileNameJoin[{dir, \
+\"production_manifest.json\"}], \"RawJSON\"]; \n    ok = FailureQ[r] && \
+AssociationQ[partial] && Length[partial[\"coefficients\"]] == 1 && \n      \
+manifest[\"status\"] == \"failed\" && manifest[\"completed_cases\"] == 1 && \
+\n      FileExistsQ[FileNameJoin[{dir, \"partial_coefficients.csv\"}]] && \n  \
+     !FileExistsQ[FileNameJoin[{dir, \"_PRODUCTION_SUCCESS.json\"}]]; \n    \
+resumed = Block[{QSFIPBH`$RunReporter = None}, RunProduction[dir, \
+persistenceControls]]; \n    ok = ok && AssociationQ[resumed] && \
+Length[resumed[\"coefficients\"]] == 2; \n    DeleteDirectory[dir, \
+DeleteContents -> True]; ok], True, \n  TestID -> \"Second case callback \
+Failure records failure and preserves first case for native cache \
+\\\nresumption\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], r, partial, \n    \
+manifest, ok}, \n   r = Block[{QSFIPBH`$RunReporter = Function[e, \
+If[Lookup[e, \"event\", None] == \"case_start\" && \n           Lookup[e, \
+\"current_case\", 0] == 2, Abort[], None]]}, \n      RunProduction[dir, \
+persistenceControls]]; \n    partial = Quiet[Check[Import[FileNameJoin[{dir, \
+\"partial_results.wxf\"}], \"WXF\"], $Failed]]; \n    manifest = \
+Import[FileNameJoin[{dir, \"production_manifest.json\"}], \"RawJSON\"]; \n    \
+ok = FailureQ[r] && AssociationQ[partial] && \
+Length[partial[\"coefficients\"]] == 1 && \n      manifest[\"status\"] == \
+\"interrupted\" && manifest[\"completed_cases\"] == 1; \n    \
+If[DirectoryQ[dir], DeleteDirectory[dir, DeleteContents -> True]]; ok], True, \
+\n  TestID -> \"Abort records interrupted status while preserving reloadable \
+completed cases\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], r, manifest, ok}, \n   \
+r = Block[{QSFIPBH`$RunReporter = Function[e, If[Lookup[e, \"event\", None] \
+== \"checkpoint_saved\", \n          Failure[\"ReporterDiskFailure\", \
+Association[]], None]]}, \n      RunProduction[dir, Join[persistenceControls, \
+Association[\"nus\" -> {0.1}]]]]; \n    manifest = Import[FileNameJoin[{dir, \
+\"production_manifest.json\"}], \"RawJSON\"]; \n    ok = FailureQ[r] && \
+manifest[\"status\"] == \"failed\" && manifest[\"completed_cases\"] == 0; \n  \
+  If[DirectoryQ[dir], DeleteDirectory[dir, DeleteContents -> True]]; ok], \
+True, \n  TestID -> \"Checkpoint reporter failures propagate instead of \
+silently hiding persistence errors\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], events = {}, r, \n    \
+symbol, ok}, Clear[persistenceReporter]; persistenceReporter[e_Association] \
+:= \n     (AppendTo[events, e]; None); r = Block[{QSFIPBH`$RunReporter = \
+persistenceReporter}, \n      RunProduction[dir, Join[persistenceControls, \
+Association[\"nus\" -> {0.1}]]]]; \n    ok = AssociationQ[r] && \
+Length[events] > 0; Clear[persistenceReporter]; \n    If[DirectoryQ[dir], \
+DeleteDirectory[dir, DeleteContents -> True]]; ok], True, \n  TestID -> \
+\"Optional reporter supports a callable symbol without altering scientific \
+settings\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], controls, a, b, \n    \
+manifest, ok}, controls = Join[persistenceControls, Association[\"nus\" -> \
+{0.1}]]; \n    a = Block[{QSFIPBH`$RunReporter = None}, RunProduction[dir, \n \
+      Join[controls, Association[\"fresh\" -> True]]]]; \n    b = \
+Block[{QSFIPBH`$RunReporter = None, BuildMixedGrid, MixedPropagator, \
+BispectrumSample, \n       TrispectrumSample}, BuildMixedGrid[___] := \
+Failure[\"MustReuseFreshCache\", Association[]]; \n       \
+MixedPropagator[___] := Failure[\"MustReuseFreshCache\", Association[]]; \n   \
+    BispectrumSample[___] := Failure[\"MustReuseFreshCache\", Association[]]; \
+\n       TrispectrumSample[___] := Failure[\"MustReuseFreshCache\", \
+Association[]]; \n       RunProduction[dir, Join[controls, \
+Association[\"fresh\" -> False]]]]; \n    manifest = \
+Import[FileNameJoin[{dir, \"production_manifest.json\"}], \"RawJSON\"]; \n    \
+ok = AssociationQ[a] && AssociationQ[b] && a[\"cache_directory\"] === \
+b[\"cache_directory\"] && \n      Lookup[a[\"coefficients\"], \
+\"stage_estimates\"] === Lookup[b[\"coefficients\"], \n        \
+\"stage_estimates\"] && manifest[\"cold_requested\"] === False; \n    \
+DeleteDirectory[dir, DeleteContents -> True]; ok], True, \n  TestID -> \
+\"Resume without explicit cache directory reuses the previous fresh UUID \
+cache\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], r, events = {}, \n    \
+ok}, r = Block[{QSFIPBH`$RunReporter = Function[e, AppendTo[events, e]; \
+None]}, \n      RunCMBFit[dir, Association[\"x\" -> {0.5, 0.75, 1.}, \"y\" -> \
+{1., 0.75, 1.}, \n        \"data\" -> {0., 0., 0.}, \"cov\" -> \
+IdentityMatrix[3]], \n       Association[\"validate_standard_templates\" -> \
+False, \"wick_depth\" -> 2., \"tail_depth\" -> 4., \n        \"real_step\" -> \
+0.4, \"vertical_step\" -> 0.4, \"nlog\" -> 12, \"dps\" -> 35]]]; \n    ok = \
+AssociationQ[r] && AnyTrue[events, Lookup[#1, \"event\", None] == \
+\"cmb_start\" & ] && \n      AnyTrue[events, Lookup[#1, \"event\", None] == \
+\"cmb_ratio\" && \n         Lookup[#1, \"sample_completed\", 0] == Lookup[#1, \
+\"sample_total\", -1] & ] && \n      AnyTrue[events, Lookup[#1, \"event\", \
+None] == \"cmb_complete\" & ]; \n    If[DirectoryQ[dir], DeleteDirectory[dir, \
+DeleteContents -> True]]; ok], True, \n  TestID -> \"Native CMB construction \
+emits grid ratio and saved fit progress\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = persistenceDirectory[], r, partial, \n    \
+manifest, ok}, Clear[persistenceNativeBuilder]; \
+DownValues[persistenceNativeBuilder] = \n     DownValues[BuildMixedGrid] /. \
+HoldPattern[BuildMixedGrid] :> persistenceNativeBuilder; \n    r = \
+Block[{QSFIPBH`$RunReporter = None, BuildMixedGrid}, \n      \
+BuildMixedGrid[nu_, settings_] := If[Abs[nu - 0.3] < 10^(-12), \n         \
+Failure[\"ForcedNativeGridFailure\", Association[]], \
+persistenceNativeBuilder[nu, \n          settings]]; RunProduction[dir, \
+persistenceControls]]; \n    partial = Quiet[Check[Import[FileNameJoin[{dir, \
+\"partial_results.wxf\"}], \"WXF\"], $Failed]]; \n    manifest = \
+Import[FileNameJoin[{dir, \"production_manifest.json\"}], \"RawJSON\"]; \n    \
+ok = FailureQ[r] && manifest[\"status\"] == \"failed\" && \
+manifest[\"completed_cases\"] == 1 && \n      AssociationQ[partial] && \
+Length[partial[\"coefficients\"]] == 1; \n    \
+Clear[persistenceNativeBuilder]; If[DirectoryQ[dir], DeleteDirectory[dir, \n  \
+    DeleteContents -> True]]; ok], True, TestID -> \"Second case native grid \
+failure updates \\\nfailed manifest and preserves the first physical \
+result\"]]"}]], "Input", InitializationCell -> True], 
+  Cell["Standalone workflow", "Section"], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$workflowTestDirectories = {}; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowNewPath[tag_] := \n  Module[{p = \
+FileNameJoin[{$TemporaryDirectory, StringJoin[\"qsfi-workflow-\", tag, \"-\", \
+\n        CreateUUID[]]}]}, AppendTo[$workflowTestDirectories, p]; p]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowTestRows[] := \
+Flatten[Table[Association[\"r_s\" -> N[r], \"nu_tilde\" -> N[nu], \n     \
+\"c_phi\" -> If[r == 0.3, 0.3, 1.], \"c_sigma\" -> If[r == 3., 1./3, 1.], \
+\"C3_hat\" -> -0.01, \n     \"C4_contact_hat\" -> -0.005, \"C4_exchange_hat\" \
+-> -0.01, \"C3_hat_standard_error\" -> 0.00001, \n     \
+\"C4_contact_hat_standard_error\" -> 0.00001, \
+\"C4_exchange_hat_standard_error\" -> 0.00001, \n     \
+\"sampling_precision_accepted\" -> True], {r, {0.3, 1., 3.}}, {nu, {0.1, 0.3, \
+0.5, 1.}}], 1]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowSuccessQ[r_] := AssociationQ[r] && \
+TrueQ[Lookup[r, \"success\", False]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowMarkerAbsentQ[dir_] :=  \
+!FileExistsQ[FileNameJoin[{dir, \"_SUCCESS.json\"}]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowTerminalQ[r_, status_] := AssociationQ[r] && \
+Lookup[r, \"status\", None] === status && \n    !TrueQ[Lookup[r, \"success\", \
+False]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"workflowMockRun[dir_String, mode_String:\"ok\", \
+extra_Association:Association[]] := \n  Module[{calls = 0, cmbCalls = 0, \
+archiveCalls = 0, exports = {}, exportCount = 0, result, \n    isolated = \
+workflowNewPath[\"empty-project\"], rows = workflowTestRows[], opts, \n    \
+loadedProjectRoot = QSFIPBH`$ProjectRoot}, CreateDirectory[isolated]; \n    \
+opts = Join[Association[\"include_cmb\" -> False, \"generate_figures\" -> \
+False, \n       \"test_mode\" -> True, \"fresh\" -> True, \
+\"production_overrides\" -> \n        Association[\"lambda3_points\" -> 5, \
+\"lambda4_points\" -> 5]], extra]; \n    Block[{QSFIPBH`RunProduction, \
+QSFIPBH`RunCMBFit, QSFIPBH`ReadArchivedCoefficients, \n      \
+QSFIPBH`DiagramFigure, QSFIPBH`ContributionFigure, QSFIPBH`TailFigure, \n     \
+ QSFIPBH`ObservationalFigure, QSFIPBH`CouplingGridFigure, \
+QSFIPBH`ExportFigure, \n      QSFIPBH`$ProjectRoot = If[mode === \
+\"with_cmb\", loadedProjectRoot, isolated]}, \n     \
+QSFIPBH`ReadArchivedCoefficients[___] := (archiveCalls++; \
+Failure[\"ForbiddenArchive\", \n         Association[]]); \
+QSFIPBH`RunProduction[out_String, overrides_:Association[]] := \n       \
+Module[{config = QSFIPBH`ProductionConfig[overrides]}, \n        calls++; \
+Switch[mode, \"failure\", Failure[\"MockProductionFailure\", \n           \
+Association[\"MessageTemplate\" -> \"Deliberate production error.\"]], \
+\"abort\", Abort[], \n          \"provisional\", \
+Failure[\"ProductionPrecision\", Association[\"MessageTemplate\" -> \n        \
+     \"Requested sampling precision was rejected.\"]], _, \
+QSFIPBH`EnsureDirectory[out]; \n           \
+QSFIPBH`WriteAssociationCSV[FileNameJoin[{out, \"coefficients.csv\"}], rows]; \
+\n           Association[\"status\" -> \"custom_complete\", \"coefficients\" \
+-> rows, \n            \"configuration\" -> config, \
+\"sampling_precision_accepted\" -> \n             mode =!= \
+\"unaccepted_summary\", \"full_production_contract\" -> False, \n            \
+\"manuscript_usable\" -> False, \"completed_cases\" -> Length[rows], \n       \
+     \"mode\" -> \"custom_or_smoke\", \"figures\" -> {}, \"scan_chunks\" -> \
+{}]]]; \n      QSFIPBH`RunCMBFit[out_String, input_, \
+overrides_:Association[]] := \n       Module[{data}, cmbCalls++; If[mode =!= \
+\"with_cmb\", Return[Failure[\"UnexpectedCMB\", \n            \
+Association[\"MessageTemplate\" -> \"CMB must not run in the PBH-only \
+scope.\"]]]]; \n         data = If[StringQ[input], Import[input, \
+If[ToLowerCase[FileExtension[input]] === \"wxf\", \n             \"WXF\", \
+\"RawJSON\"]], input]; If[ !AssociationQ[data] || \n            \
+!AllTrue[{\"x\", \"y\", \"data\", \"cov\"}, KeyExistsQ[data, #1] & ], \n      \
+    Return[Failure[\"NotRawCMB\", Association[]]]]; Association[\"mean\" -> \
+0., \"sigma\" -> 0.01, \n          \"low95\" -> -0.0196, \"high95\" -> \
+0.0196, \"n_bins\" -> Length[data[\"x\"]], \n          \
+\"native_wolfram_language\" -> True, \"source\" -> \n           \"unit mock \
+of newly fitted supplied raw observations\"]]; \n      \
+QSFIPBH`DiagramFigure[___] := Graphics[{}]; QSFIPBH`ContributionFigure[___] \
+:= Graphics[{}]; \n      QSFIPBH`TailFigure[___] := Graphics[{}]; \
+QSFIPBH`ObservationalFigure[___] := Graphics[{}]; \n      \
+QSFIPBH`CouplingGridFigure[___] := Graphics[{}]; QSFIPBH`ExportFigure[_, \
+stem_String] := \n       Module[{paths}, exportCount++; AppendTo[exports, \
+Association[\"stem\" -> stem, \n           \"success_marker_present\" -> \
+FileExistsQ[FileNameJoin[{dir, \"_SUCCESS.json\"}]]]]; \n         If[mode === \
+\"export_failure\" && exportCount >= 2, Return[Failure[\"MockExportFailure\", \
+\n            Association[\"MessageTemplate\" -> \"Deliberate export \
+failure.\"]]]]; \n         QSFIPBH`EnsureDirectory[DirectoryName[stem]]; \
+paths = (StringJoin[stem, \".\", #1] & ) /@ \n           {\"pdf\", \"svg\", \
+\"png\"}; Scan[If[mode =!= \"missing_export\" || #1 =!= First[paths], \n      \
+      Export[#1, If[mode === \"empty_export\" && #1 === First[paths], \"\", \
+\n              \"unit-test artifact; graphics rendering is mocked\"], \
+\"Text\"]] & , paths]; paths]; \n      result = QSFIPBH`RunStandalone[dir, \
+opts]]; Association[\"result\" -> result, \n     \"production_calls\" -> \
+calls, \"cmb_calls\" -> cmbCalls, \"archive_calls\" -> archiveCalls, \n     \
+\"exports\" -> exports]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"success\"], t, r}, \n   t = \
+workflowMockRun[dir]; r = t[\"result\"]; workflowSuccessQ[r] && \n     \
+Lookup[r, \"status\", None] === \"custom_success\" && \n      \
+!TrueQ[Lookup[r, \"manuscript_usable\", True]] && t[\"production_calls\"] === \
+1 && \n     t[\"cmb_calls\"] === 0 && t[\"archive_calls\"] === 0 && \n     \
+FileExistsQ[FileNameJoin[{dir, \"results.wxf\"}]] && \n     \
+FileExistsQ[FileNameJoin[{dir, \"_SUCCESS.json\"}]] && \n     \
+FileExistsQ[FileNameJoin[{dir, \"run_manifest.json\"}]] && \n     \
+FileExistsQ[FileNameJoin[{dir, \"progress.json\"}]] && \n     \
+FileExistsQ[FileNameJoin[{dir, \"config.json\"}]]], True, \n  TestID -> \
+\"Standalone custom native-scope success persists explicit terminal artifacts \
+without \\\narchived files\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"reload\"], t, r, saved}, \n  \
+ t = workflowMockRun[dir]; r = t[\"result\"]; If[ !workflowSuccessQ[r], \
+Return[False]]; \n    saved = QSFIPBH`LoadRunResults[dir]; \
+AssociationQ[saved] && \n     TrueQ[Lookup[saved, \"success\", False]] &&  \
+!TrueQ[Lookup[saved, \"manuscript_usable\", True]] && \n     \
+Length[Lookup[saved, \"coefficients\", {}]] === 12], True, \n  TestID -> \
+\"Standalone saved results reload as a scientifically useful native \
+bundle\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"scope\"], t, r, m}, \n   t = \
+workflowMockRun[dir]; r = t[\"result\"]; If[ !workflowSuccessQ[r], \
+Return[False]]; \n    m = Import[FileNameJoin[{dir, \"run_manifest.json\"}], \
+\"RawJSON\"]; \n    StringContainsQ[ToLowerCase[ToString[Lookup[m, \"scope\", \
+Lookup[r, \"scope\", \"\"]]]], \"pbh\"] && \n      !TrueQ[Lookup[m, \
+\"include_cmb\", False]]], True, \n  TestID -> \"Scoped PBH-only completion \
+is labeled and never implies a new CMB fit\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"error\"], t, r}, \n   t = \
+workflowMockRun[dir, \"failure\"]; r = t[\"result\"]; workflowTerminalQ[r, \
+\"failed\"] && \n     workflowMarkerAbsentQ[dir] && \
+FileExistsQ[FileNameJoin[{dir, \"_FAILED.json\"}]]], True, \n  TestID -> \
+\"Standalone production failure writes failed state and never a success \
+marker\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"abort\"], t, r}, \n   t = \
+CheckAbort[workflowMockRun[dir, \"abort\"], \"AbortEscaped\"]; \n    If[ \
+!AssociationQ[t], Return[False]]; r = t[\"result\"]; workflowTerminalQ[r, \
+\"interrupted\"] && \n     workflowMarkerAbsentQ[dir] && \
+FileExistsQ[FileNameJoin[{dir, \"_INTERRUPTED.json\"}]]], True, \n  TestID -> \
+\"Standalone catches Abort and persists interrupted status without false \
+success\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"precision\"], t, r}, \n   t \
+= workflowMockRun[dir, \"provisional\"]; r = t[\"result\"]; \
+workflowTerminalQ[r, \"failed\"] && \n     workflowMarkerAbsentQ[dir] &&  \
+!TrueQ[Lookup[r, \"manuscript_usable\", False]]], True, \n  TestID -> \
+\"Rejected numerical precision cannot become standalone success\"]]"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"export-order\"], t, r}, \n   \
+t = workflowMockRun[dir, \"ok\", Association[\"generate_figures\" -> True]]; \
+r = t[\"result\"]; \n    workflowSuccessQ[r] && Length[t[\"exports\"]] >= 3 \
+&& AllTrue[t[\"exports\"], \n       !TrueQ[#1[\"success_marker_present\"]] & \
+] && \n     FileExistsQ[FileNameJoin[{dir, \"_SUCCESS.json\"}]]], True, \n  \
+TestID -> \n   \"Success marker is absent during every requested export and \
+written only after artifacts exist\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"export-error\"], t, r}, \n   \
+t = workflowMockRun[dir, \"export_failure\", Association[\"generate_figures\" \
+-> True]]; \n    r = t[\"result\"]; workflowTerminalQ[r, \"failed\"] && \
+workflowMarkerAbsentQ[dir] && \n     FileExistsQ[FileNameJoin[{dir, \
+\"_FAILED.json\"}]]], True, \n  TestID -> \"Failed final export never leaves \
+a completion marker\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"corrupt-results\"], t, r}, \
+\n   t = workflowMockRun[dir]; If[ !workflowSuccessQ[t[\"result\"]], \
+Return[False]]; \n    Export[FileNameJoin[{dir, \"results.wxf\"}], \
+Association[\"success\" -> True, \"tampered\" -> True], \n     \"WXF\"]; \
+MatchQ[QSFIPBH`LoadRunResults[dir], _Failure]], True, \n  TestID -> \"Reload \
+rejects a parseable results payload with a mismatched saved hash\"]]"}]], 
+   "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"corrupt-marker\"], t, \n    \
+marker, key}, t = workflowMockRun[dir]; If[ !workflowSuccessQ[t[\"result\"]], \
+Return[False]]; \n    marker = Import[FileNameJoin[{dir, \"_SUCCESS.json\"}], \
+\"RawJSON\"]; \n    key = SelectFirst[{\"results_sha256\", \
+\"result_sha256\"}, KeyExistsQ[marker, #1] & , \n      Missing[\"HashKey\"]]; \
+If[MissingQ[key], Return[False]]; marker[key] = StringRepeat[\"0\", 64]; \n   \
+ Export[FileNameJoin[{dir, \"_SUCCESS.json\"}], marker, \"RawJSON\"]; \n    \
+MatchQ[QSFIPBH`LoadRunResults[dir], _Failure]], True, \n  TestID -> \"Reload \
+rejects a corrupted terminal-marker result signature\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"missing-marker\"], t}, \n   \
+t = workflowMockRun[dir]; If[ !workflowSuccessQ[t[\"result\"]], \
+Return[False]]; \n    DeleteFile[FileNameJoin[{dir, \"_SUCCESS.json\"}]]; \
+MatchQ[QSFIPBH`LoadRunResults[dir], \n     _Failure]], True, \n  TestID -> \
+\"Saved payload without verified final completion marker is not silently \
+accepted\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"existing\"], t, sentinel}, \
+\n   CreateDirectory[dir]; sentinel = FileNameJoin[{dir, \"user-file.txt\"}]; \
+\n    Export[sentinel, \"preserve me\", \"Text\"]; t = workflowMockRun[dir]; \
+\n     !workflowSuccessQ[t[\"result\"]] && t[\"production_calls\"] === 0 && \
+\n     Import[sentinel, \"Text\"] === \"preserve me\" && \
+workflowMarkerAbsentQ[dir] && \n     Length[FileNames[\"*\", dir]] === 1], \
+True, TestID -> \"Fresh standalone run refuses an occupied \\\ndirectory \
+without destroying or changing prior files\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"status\"], t, r, panel, \n   \
+ text}, t = workflowMockRun[dir]; r = t[\"result\"]; If[ \
+!workflowSuccessQ[r], Return[False]]; \n    panel = \
+QSFIPBH`RunStatusPanel[r]; text = ToString[panel, InputForm]; \n    \
+Head[panel] === Panel && StringContainsQ[text, {\"completed\", \n \
+      \"Output directory\", \"Details\"}] && \
+\n     TrueQ[Lookup[QSFIPBH`$RunState, \"success\", False]]], True, \n  \
+TestID -> \n   \"Native status panel displays completion and agrees \
+with computed successful run state\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"success-hash\"], t, m, \n    \
+key, payload}, t = workflowMockRun[dir]; If[ \
+!workflowSuccessQ[t[\"result\"]], Return[False]]; \n    m = \
+Import[FileNameJoin[{dir, \"_SUCCESS.json\"}], \"RawJSON\"]; \n    key = \
+SelectFirst[{\"results_sha256\", \"result_sha256\"}, KeyExistsQ[m, #1] & , \n \
+     Missing[\"HashKey\"]]; If[MissingQ[key], Return[False]]; \n    payload = \
+FileNameJoin[{dir, \"results.wxf\"}]; \n    m[key] === \
+IntegerString[FileHash[payload, \"SHA256\"], 16, 64]], True, \n  TestID -> \
+\"Last-written success marker records the exact saved native result \
+checksum\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+MatchQ[QSFIPBH`RunStandalone[workflowNewPath[\"bad-options\"], \"invalid\"], \
+_Failure], True, \n  TestID -> \"Standalone malformed options return an \
+explicit Failure\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"prior-completed\"], t, \n    \
+marker}, CreateDirectory[dir]; marker = FileNameJoin[{dir, \
+\"_SUCCESS.json\"}]; \n    Export[marker, Association[\"prior_run\" -> True], \
+\"RawJSON\"]; t = workflowMockRun[dir]; \n     \
+!workflowSuccessQ[t[\"result\"]] && t[\"production_calls\"] === 0 && \
+FileExistsQ[marker] && \n     TrueQ[Import[marker, \
+\"RawJSON\"][\"prior_run\"]] && Length[FileNames[\"*\", dir]] === 1], True, \
+\n  TestID -> \"Fresh refusal preserves an existing completed-run marker \
+exactly\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"missing-export\"], t}, \n   \
+t = workflowMockRun[dir, \"missing_export\", Association[\"generate_figures\" \
+-> True]]; \n    workflowTerminalQ[t[\"result\"], \"failed\"] && \
+workflowMarkerAbsentQ[dir]], True, \n  TestID -> \"Claimed export with a \
+missing artifact is rejected before completion\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"empty-export\"], t}, \n   t \
+= workflowMockRun[dir, \"empty_export\", Association[\"generate_figures\" -> \
+True]]; \n    workflowTerminalQ[t[\"result\"], \"failed\"] && \
+workflowMarkerAbsentQ[dir]], True, \n  TestID -> \"Claimed export with an \
+empty artifact is rejected before completion\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"raw-cmb\"], t, r}, \n   t = \
+workflowMockRun[dir, \"with_cmb\", Association[\"include_cmb\" -> True]]; r = \
+t[\"result\"]; \n    workflowSuccessQ[r] && t[\"cmb_calls\"] === 1 && \
+t[\"archive_calls\"] === 0 && \n     Lookup[r, \"scope\", Lookup[Lookup[r, \
+\"manifest\", Association[]], \"scope\", None]] === \"full\"], \n  True, \
+TestID -> \"Full standalone scope calls a new native CMB fit with raw \
+observation arrays\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"corrupt-inventory\"], t, \n  \
+  files}, t = workflowMockRun[dir]; If[ !workflowSuccessQ[t[\"result\"]], \
+Return[False]]; \n    files = FileNames[\"coefficients.csv\", dir, Infinity]; \
+If[files === {}, Return[False]]; \n    Export[First[files], \"modified \
+scientific coefficient table\", \"Text\"]; \n    \
+MatchQ[QSFIPBH`LoadRunResults[dir], _Failure]], True, \n  TestID -> \"Reload \
+verifies scientific artifact inventory beyond the native result payload\"]]"}]\
+], "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"unaccepted-summary\"], t}, \
+\n   t = workflowMockRun[dir, \"unaccepted_summary\"]; \
+workflowTerminalQ[t[\"result\"], \"failed\"] && \n     \
+workflowMarkerAbsentQ[dir]], True, \n  TestID -> \"Unaccepted precision in an \
+apparently completed production Association is rejected\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{dir = workflowNewPath[\"custom-not-test\"], t, r}, \
+\n   t = workflowMockRun[dir, \"ok\", Association[\"test_mode\" -> False]]; r \
+= t[\"result\"]; \n    workflowSuccessQ[r] && Lookup[r, \"status\", None] === \
+\"custom_success\" && \n      !TrueQ[Lookup[r, \"manuscript_usable\", \
+True]]], True, \n  TestID -> \n   \"Noncanonical production contract remains \
+custom success even without the test-mode flag\"]]"}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Scan[If[DirectoryQ[#1], DeleteDirectory[#1, \
+DeleteContents -> True]] & , $workflowTestDirectories]; "}]], "Input", 
+   InitializationCell -> True], Cell["Standalone guards", "Section"], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+QSFIPBH`Private`standaloneJSON[Association[\"nested\" -> Association[\"mode\" \
+-> Automatic]]][\n    \"nested\"][\"mode\"], \"Automatic\", \n  TestID -> \
+\"Nested run configuration serializes Automatic without silently breaking \
+JSON storage\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+StringQ[QSFIPBH`Private`jsonReady[Association[\"diagnostic\" -> \
+Association[\"error\" -> Infinity]]][\n     \"diagnostic\"][\"error\"]], \
+True, \n  TestID -> \"Nested nonfinite diagnostic is explicitly serializable \
+in metadata\"]]"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, \
+VerificationTest[Module[{fit, config, provenance}, \n   config = \
+Association[\"wick_pivot\" -> 4., \"wick_depth\" -> 20., \"tail_depth\" -> \
+22., \n      \"real_step\" -> 0.02, \"vertical_step\" -> 0.02, \"nlog\" -> \
+650, \"xmin\" -> 10^(-6), \"dps\" -> 35, \n      \"c_phi\" -> 1., \"c_sigma\" \
+-> 1./3, \"i_epsilon\" -> 10^(-8), \"nu_tilde\" -> 0.1, \n      \"A_s\" -> \
+2.1*^-9, \"lambda2_over_h\" -> 0.38]; \n    fit = Association[\"resolution\" \
+-> \"fine\", \"n_bins\" -> 171, \n      \
+\"standard_template_validation_requested\" -> True, \
+\"standard_template_validation\" -> \n       Association[\"local\" -> \
+Association[], \"equilateral\" -> Association[], \n        \"orthogonal\" -> \
+Association[]], \"configuration\" -> config]; \n    provenance = \
+Association[\"used_bins\" -> 171, \"test_subset\" -> False]; \n    \
+TrueQ[QSFIPBH`Private`standaloneCanonicalCMB[fit, provenance]] && \n      \
+!TrueQ[QSFIPBH`Private`standaloneCanonicalCMB[Join[fit, \n         \
+Association[\"resolution\" -> \"coarse\"]], provenance]] && \n      \
+!TrueQ[QSFIPBH`Private`standaloneCanonicalCMB[Join[fit, \n         \
+Association[\"standard_template_validation_requested\" -> False]], \
+provenance]] && \n      !TrueQ[QSFIPBH`Private`standaloneCanonicalCMB[fit, \
+Association[\"used_bins\" -> 3, \n         \"test_subset\" -> True]]]], True, \
+TestID -> \"Coarse, unvalidated or subset CMB output \\\ncannot inherit a \
+manuscript-precision completion flag\"]]"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, \
+StringJoin[\"qsfi-unknown-resume-\", \n        CreateUUID[]]}], r, ok}, \
+CreateDirectory[dir]; Export[FileNameJoin[{dir, \"user.txt\"}], \n     \
+\"preserve\", \"Text\"]; r = RunStandalone[dir, Association[\"fresh\" -> \
+False]]; \n    ok = FailureQ[r] && Length[FileNames[\"*\", dir]] == 1; \
+DeleteDirectory[dir, \n     DeleteContents -> True]; ok], True, \n  TestID -> \
+\"Resume never takes ownership of an ordinary unrelated directory\"]]"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"AppendTo[qsfiTestResults, VerificationTest[\n  \
+Module[{dir = FileNameJoin[{$TemporaryDirectory, \
+StringJoin[\"qsfi-corrupt-resume-\", \n        CreateUUID[]]}], r, ok}, \
+CreateDirectory[dir]; Export[FileNameJoin[{dir, \"config.json\"}], \n     \
+Association[\"format_version\" -> \"qsfi-standalone-native-v1\", \n      \
+\"controls\" -> Association[\"include_cmb\" -> \"corrupt\"]], \"RawJSON\"]; \
+\n    r = RunStandalone[dir, Association[\"fresh\" -> False]]; \n    ok = \
+FailureQ[r] &&  !FileExistsQ[FileNameJoin[{dir, \"_SUCCESS.json\"}]]; \n    \
+DeleteDirectory[dir, DeleteContents -> True]; ok], True, \n  TestID -> \
+\"Resume revalidates restored saved options before any scientific \
+computation\"]]"}]], "Input", InitializationCell -> True], 
+  Cell["Summary and export", "Section"], 
+  Cell[BoxData[RowBox[{"qsfiCollectedTests = Select[Flatten[qsfiTestResults], \
+\n   MemberQ[{\"TestObject\", \"TestResultObject\"}, SymbolName[Head[#1]]] & \
+]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"If[qsfiCollectedTests === {}, qsfiTestSummary = \
+Failure[\"EmptyTestSuite\", \n    Association[\"MessageTemplate\" -> \"No \
+test objects were collected.\"]], \n  qsfiTestReport = \
+TestReport[qsfiCollectedTests]; qsfiFailedResults = \n    \
+Select[Values[qsfiTestReport[\"TestResults\"]], #1[\"Outcome\"] =!= \
+\"Success\" & ]; \n   qsfiTestSummary = Association[\"wolfram_version\" -> \
+$Version, \n     \"tests_run\" -> Length[qsfiCollectedTests], \
+\"tests_succeeded\" -> \n      qsfiTestReport[\"TestsSucceededCount\"], \
+\"tests_failed\" -> qsfiTestReport[\"TestsFailedCount\"], \n     \
+\"failed_test_ids\" -> (#1[\"TestID\"] & ) /@ qsfiFailedResults, \n     \
+\"status\" -> If[qsfiTestReport[\"TestsFailedCount\"] == 0, \"passed\", \
+\"failed\"]]; \n   QSFIPBH`WriteJSON[FileNameJoin[{qsfiNotebookRoot, \
+\"output\", \"test_report.json\"}], \n    qsfiTestSummary]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"qsfiTestSummary"}]], 
+   "Input", InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]

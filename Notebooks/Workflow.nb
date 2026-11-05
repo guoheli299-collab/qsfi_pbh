@@ -1,0 +1,575 @@
+Notebook[{Cell["QSFI\[Dash]PBH | Workflow", "Title"], 
+  Cell["Native Mathematica module loaded by QSFIPBH.nb.", "Text"], 
+  Cell["Definitions", "Section"], Cell[BoxData[RowBox[{"Null"}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"BeginPackage[\"QSFIPBH`\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunStandalone::usage = \
+\"RunStandalone[directory:Automatic, options] computes new native \
+\\\ncoefficients, PBH results and an optional new CMB fit, then saves and \
+verifies all requested \\\noutputs.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LoadRunResults::usage = \"LoadRunResults[directory] \
+verifies the last-written success marker and all \\\nsaved artifact hashes \
+before loading results.wxf.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunStatusPanel::usage = \
+\"RunStatusPanel[resultOrDirectory] displays the current native calculation \
+\\\nstatus and saved output location.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ValidateObservationData::usage = \
+\"ValidateObservationData[data, expectedBins:171] checks finite \\\ntriangle \
+coordinates and full positive-definite observational covariance.\"; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$RunState::usage = \"Latest standalone calculation \
+progress Association, for Monitor/Dynamic.\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"$RunReporter::usage = \"Optional dynamically scoped \
+native integration progress callback; not part \\\nof any scientific cache \
+identity.\"; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Begin[\"`Private`\"]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"If[ !AssociationQ[$RunState], $RunState = \
+Association[\"status\" -> \"not_started\", \n    \"success\" -> False, \
+\"phase\" -> \"idle\", \"message\" -> \"Not started\"]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"If[ !ValueQ[$RunReporter], $RunReporter = None]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneFailure[tag_, message_, \
+extra_:Association[]] := \n  Failure[tag, \
+Join[Association[\"MessageTemplate\" -> message], extra]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneHash[path_String] := \
+IntegerString[FileHash[path, \"SHA256\"], 16, 64]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"standaloneJSON[x_Association] := standaloneJSON /@ x; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[x_List] := standaloneJSON /@ x; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[Automatic] := \"Automatic\"; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[None] := \"None\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[x_Missing] := ToString[x, InputForm]; \
+"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"standaloneJSON[x_DirectedInfinity] := ToString[x, InputForm]; "}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[
+     {"standaloneJSON[Indeterminate] := \"Indeterminate\"; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[x_Complex] := Association[\"real\" -> \
+Re[x], \"imag\" -> Im[x]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneJSON[x_] := x; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneAtomic[path_String, expression_, \
+format_String] := \n  Module[{temporary, written, readback, failure}, \n   \
+failure = standaloneFailure[\"ResultStorage\", \"Could not reliably save the \
+result file.\", \n      Association[\"file\" -> path]]; If[ \
+!DirectoryQ[DirectoryName[path]], \n     \
+If[Quiet[Check[CreateDirectory[DirectoryName[path], \
+CreateIntermediateDirectories -> True], \n         $Failed]] === $Failed, \
+Return[failure]]]; \n    temporary = FileNameJoin[{DirectoryName[path], \
+StringJoin[\".\", FileNameTake[path], \".\", \n        CreateUUID[], \
+\".tmp\"]}]; \n    written = Quiet[Check[Export[temporary, If[format == \
+\"RawJSON\", standaloneJSON[expression], \n         expression], format], \
+$Failed]]; If[ !StringQ[written] ||  !FileExistsQ[temporary] || \n      \
+FileByteCount[temporary] == 0, If[FileExistsQ[temporary], \
+DeleteFile[temporary]]; \n      Return[failure]]; readback = \
+Quiet[Check[Import[temporary, format], $Failed]]; \n    If[readback === \
+$Failed || (format == \"WXF\" && readback =!= expression), \n     \
+DeleteFile[temporary]; Return[failure]]; \n    written = \
+Quiet[Check[RenameFile[temporary, path, OverwriteTarget -> True], $Failed]]; \
+\n    If[written === $Failed, If[FileExistsQ[temporary], \
+DeleteFile[temporary]]; failure, path]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneNeed[value_] := If[FailureQ[value], \
+Throw[value, standaloneAbort], value]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneCSV[path_, rows_List] := Module[{keys, \
+table}, \n   keys = If[rows === {}, {}, Keys[First[rows]]]; table = \
+Prepend[(Lookup[#1, keys] & ) /@ rows, \n      keys]; standaloneAtomic[path, \
+table, \"CSV\"]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneState[out_, event_Association] := \
+Module[{state, write, stream, line}, \n   state = Join[$RunState, \
+KeyDrop[event, {\"success\", \"output_directory\", \"run_id\", \
+\"started_at\", \n        \"started_absolute_time\"}], Association[\"status\" \
+-> \"running\", \"success\" -> False, \n       \"updated_at\" -> \
+DateString[\"ISODateTime\"], \"elapsed_seconds\" -> \n        \
+N[AbsoluteTime[] - Lookup[$RunState, \"started_absolute_time\", \
+AbsoluteTime[]]]]]; \n    $RunState = state; write = \
+standaloneAtomic[FileNameJoin[{out, \"progress.json\"}], state, \n      \
+\"RawJSON\"]; If[FailureQ[write], Return[write]]; \n    line = \
+StringJoin[StringRiffle[DeleteCases[{DateString[\"ISODateTime\"], \n         \
+ToString[Lookup[state, \"phase\", \"running\"]], ToString[Lookup[event, \
+\"event\", \"progress\"]], \n         ToString[Lookup[event, \"message\", \
+\"\"]], If[KeyExistsQ[event, \"stage\"], \n          \
+ToString[event[\"stage\"]], \"\"], If[KeyExistsQ[event, \
+\"sample_completed\"], \n          \
+StringJoin[ToString[event[\"sample_completed\"]], \"/\", \n           \
+ToString[Lookup[event, \"sample_total\", \"?\"]]], \"\"]}, \"\"], \" | \"], \
+\"\\n\"]; \n    stream = Quiet[Check[OpenAppend[FileNameJoin[{out, \
+\"run.log\"}], CharacterEncoding -> \"UTF8\"], \n       $Failed]]; \
+If[Head[stream] =!= OutputStream, Return[standaloneFailure[\"ResultStorage\", \
+\n       \"Could not open the run log.\"]]]; \n    write = \
+Quiet[Check[WriteString[stream, line]; Close[stream]; True, \n       \
+Quiet[Close[stream]]; False]]; If[ !TrueQ[write], \
+standaloneFailure[\"ResultStorage\", \n      \"Could not save the run \
+log.\"], state]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneTestProduction[] := \
+Association[\"lambda3_points\" -> 5, \"lambda4_points\" -> 5, \n   \"nlog\" \
+-> 12, \"real_step\" -> 0.4, \"vertical_step\" -> 0.4, \"wick_depth\" -> 2., \
+\n   \"tail_depth\" -> 4., \"dps\" -> 25, \"ratio_floor\" -> 0.01, \
+\"ratio_nodes\" -> 5, \n   \"sobol_power_bispectrum\" -> 2, \
+\"sobol_power_contact\" -> 2, \"sobol_power_exchange\" -> 2, \n   \
+\"sobol_replicates\" -> 2, \"sobol_min_replicates_four_point\" -> 2, \n   \
+\"sobol_max_replicates_four_point\" -> 2, \
+\"sobol_max_power_increment_four_point\" -> 0, \n   \
+\"sobol_relative_error_target_bispectrum\" -> 100., \
+\"sobol_relative_error_target_four_point\" -> \n    100.]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneTestCMB[] := Association[\"nlog\" -> 12, \
+\"real_step\" -> 0.4, \"vertical_step\" -> 0.4, \n   \"wick_depth\" -> 2., \
+\"tail_depth\" -> 4., \"dps\" -> 25, \"validate_standard_templates\" -> \
+False]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"observationFiniteRealQ[value_] := MatchQ[value, \
+_Integer | _Rational | _Real] && \n   FreeQ[N[value], _DirectedInfinity | \
+Indeterminate]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"ValidateObservationData[input_, expectedBins_:171] := \
+\n  Catch[Module[{required = {\"x\", \"y\", \"data\", \"cov\"}, values, x, y, \
+measured, cov, n, tolerance, \n     validationFit, fail, covScale, \
+asymmetry}, \n    fail[tag_, message_] := Throw[Failure[tag, \
+Association[\"MessageTemplate\" -> message]]]; \n     If[ \
+!AssociationQ[input] ||  !AllTrue[required, KeyExistsQ[input, #1] & ], \n     \
+ fail[\"ObservationSchema\", \"Observations must contain x, y, data and cov \
+arrays.\"]]; \n     values = Lookup[input, required]; {x, y, measured, cov} = \
+values; \n     If[ !VectorQ[x, observationFiniteRealQ] || x === {} ||  \
+!VectorQ[y, observationFiniteRealQ] || \n        !VectorQ[measured, \
+observationFiniteRealQ], fail[\"ObservationNumbers\", \n       \"Coordinates \
+and measured data must be nonempty finite real numerical vectors.\"]]; \n     \
+n = Length[x]; If[Length[y] != n || Length[measured] != n || \n        \
+!MatrixQ[cov, observationFiniteRealQ] || Dimensions[cov] != {n, n}, \n      \
+fail[\"ObservationDimensions\", \n       \"Observation vectors and the square \
+full covariance must have matching dimensions.\"]]; \n     If[expectedBins \
+=!= Automatic && ( !IntegerQ[expectedBins] || n != expectedBins), \n      \
+fail[\"ObservationBins\", \n       \"Observation bin count does not match the \
+expected released dataset.\"]]; \n     tolerance = 64*$MachineEpsilon; \n     \
+If[ !And @@ MapThread[Function[{xx, yy}, TrueQ[Inequality[0, Less, xx, \
+LessEqual, 1] && \n            Inequality[0, Less, yy, LessEqual, 1] && xx <= \
+yy + tolerance && \n            1 - yy <= xx + tolerance]], {x, y}], \
+fail[\"ObservationCoordinates\", \"Triangle \\\ncoordinates must satisfy \
+0<x<=y<=1 and 1-y<=x (up to rounding at triangle boundaries).\"]]; \n     \
+covScale = Max[1., Max[Abs[Flatten[N[cov]]]]]; \n     asymmetry = \
+Max[Abs[Flatten[N[cov - Transpose[cov]]]]]; \n     If[asymmetry > \
+64*$MachineEpsilon*covScale, fail[\"ObservationCovariance\", \n       \"Full \
+observation covariance must be symmetric.\"]]; \n     validationFit = \
+QSFIPBH`FitTemplate[UnitVector[n, 1], ConstantArray[0., n], cov]; \n     \
+If[FailureQ[validationFit], fail[\"ObservationCovariance\", \n       \"Full \
+observation covariance must be positive definite.\"]]; \n     \
+Join[KeyTake[input, required], Association[\"observation_validation\" -> \n   \
+     Association[\"bins\" -> n, \"finite_real_arrays\" -> True, \
+\"triangle_coordinates_valid\" -> \n          True, \
+\"covariance_symmetric_within_roundoff\" -> True, \
+\"covariance_positive_definite\" -> \n          True, \
+\"covariance_absolute_asymmetry\" -> asymmetry, \
+\"covariance_relative_asymmetry\" -> \n          asymmetry/covScale, \
+\"positive_definiteness_check\" -> \"Native FitTemplate validation; \
+\\\nnumerical working covariance symmetrized at roundoff level; original \
+input arrays retained\"]]]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneRawObservations[input_, test_] := \
+Module[{file, data, n, used, hash}, \n   file = If[input === Automatic || \
+input === \"Automatic\", \n      FileNameJoin[{$ProjectRoot, \"data\", \
+\"observations\", \"planck_pr4_binned_shape.json\"}], input]; \n    data = \
+If[AssociationQ[file], file, If[StringQ[file] && FileExistsQ[file], \n       \
+Quiet[Check[Import[file, If[ToLowerCase[FileExtension[file]] == \"wxf\", \
+\"WXF\", \"RawJSON\"]], \n         $Failed]], $Failed]]; If[ \
+!AssociationQ[data] || \n       !AllTrue[{\"x\", \"y\", \"data\", \"cov\"}, \
+KeyExistsQ[data, #1] & ], \n     Return[standaloneFailure[\"Observations\", \
+\"Missing observational input x, y, data, or cov.\"]]]; \n    n = \
+Length[data[\"x\"]]; If[n == 0 || Length[data[\"y\"]] != n || \
+Length[data[\"data\"]] != n || \n      Dimensions[data[\"cov\"]] =!= {n, n}, \
+Return[standaloneFailure[\"Observations\", \n       \"Observation array \
+dimensions do not match.\"]]]; \n    data = ValidateObservationData[data, \
+Automatic]; If[FailureQ[data], Return[data]]; \n    hash = If[StringQ[file], \
+standaloneHash[file], Hash[data, \"SHA256\", \"HexString\"]]; \n    used = \
+If[TrueQ[test] && n > 3, Association[\"x\" -> Take[data[\"x\"], 3], \n       \
+\"y\" -> Take[data[\"y\"], 3], \"data\" -> Take[data[\"data\"], 3], \n       \
+\"cov\" -> data[\"cov\"][[1 ;; 3,1 ;; 3]]], KeyTake[data, {\"x\", \"y\", \
+\"data\", \"cov\"}]]; \n    Association[\"data\" -> used, \"provenance\" -> \
+Association[\"kind\" -> \"raw_observations\", \n       \"source\" -> \
+If[StringQ[file], FileNameTake[file], \"supplied_association\"], \"sha256\" \
+-> hash, \n       \"original_bins\" -> n, \"used_bins\" -> \
+Length[used[\"x\"]], \"test_subset\" -> \n        TrueQ[test] && n > 3, \
+\"theory_coefficients_loaded\" -> False, \"archived_cmb_fit_loaded\" -> \n    \
+    False]]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneArtifact[out_, path_String] := Module[{full \
+= ExpandFileName[path], \n    prefix = ExpandFileName[out], relative}, \n   \
+If[ !StringStartsQ[full, StringJoin[prefix, $PathnameSeparator]] ||  \
+!FileExistsQ[full] || \n      DirectoryQ[full] || FileByteCount[full] == 0, \
+Return[standaloneFailure[\"MissingArtifact\", \n       \"A result file is \
+missing, empty, or outside the run directory.\", \n       \
+Association[\"file\" -> path]]]]; relative = \
+FileNameJoin[FileNameSplit[full][[\n       FileNameDepth[prefix] + 1 ;; \
+All]]]; Association[\"path\" -> relative, \n     \"bytes\" -> \
+FileByteCount[full], \"sha256\" -> standaloneHash[full]]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneExport[out_, figure_, stem_] := \n  \
+Module[{files = ExportFigure[figure, FileNameJoin[{out, \"figures\", stem}]], \
+check}, \n   If[FailureQ[files], Return[files]]; If[ !ListQ[files] || \
+Length[files] != 3 || \n       !VectorQ[files, StringQ], \
+Return[standaloneFailure[\"FigureExport\", \n       \"Figure export did not \
+produce PDF, SVG and PNG files.\"]]]; \n    check = (standaloneArtifact[out, \
+#1] & ) /@ files; If[AnyTrue[check, FailureQ], \n     FirstCase[check, \
+_Failure], files]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneControlsQ[c_] := AssociationQ[c] && \n   \
+AllTrue[Lookup[c, {\"fresh\", \"test_mode\", \"include_cmb\", \
+\"generate_figures\"}, None], \n    MemberQ[{True, False}, #1] & ] && \
+AssociationQ[Lookup[c, \"production_overrides\", None]] && \n   \
+AssociationQ[Lookup[c, \"cmb_overrides\", None]]; "}]], "Input", 
+   InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneCanonicalCMB[fit_, provenance_] := \
+Module[{expected, actual}, \n   If[ !AssociationQ[fit] ||  \
+!AssociationQ[provenance] || Lookup[fit, \"resolution\", None] =!= \n       \
+\"fine\" || Lookup[fit, \"n_bins\", 0] =!= 171 || \n       !TrueQ[Lookup[fit, \
+\"standard_template_validation_requested\", False]] || \n       \
+!AssociationQ[Lookup[fit, \"standard_template_validation\", None]] || \n      \
+ !AllTrue[{\"local\", \"equilateral\", \"orthogonal\"}, \n        \
+KeyExistsQ[fit[\"standard_template_validation\"], #1] & ] || \n      \
+Lookup[provenance, \"used_bins\", 0] =!= 171 || TrueQ[Lookup[provenance, \
+\"test_subset\", True]], \n     Return[False]]; expected = \
+Association[\"wick_pivot\" -> 4., \"wick_depth\" -> 20., \n      \
+\"tail_depth\" -> 22., \"real_step\" -> 0.02, \"vertical_step\" -> 0.02, \
+\"nlog\" -> 650, \n      \"xmin\" -> 10^(-6), \"dps\" -> 35, \"c_phi\" -> 1., \
+\"c_sigma\" -> 1./3, \"i_epsilon\" -> 10^(-8), \n      \"nu_tilde\" -> 0.1, \
+\"A_s\" -> 2.1*^-9, \"lambda2_over_h\" -> 0.38]; \n    actual = Lookup[fit, \
+\"configuration\", Association[]]; AssociationQ[actual] && \n     And @@ \
+KeyValueMap[Function[{key, value}, NumericQ[Lookup[actual, key, None]] && \n  \
+       TrueQ[Abs[actual[key] - value] <= Max[Abs[value], 10^(-12)]/10^12]], \
+expected]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"standaloneTerminalFailure[out_, failure_, \
+interrupted_] := Module[{status, summary, write}, \n   status = \
+If[TrueQ[interrupted], \"interrupted\", \"failed\"]; \n    If[DirectoryQ[out] \
+&& FileExistsQ[FileNameJoin[{out, \"_SUCCESS.json\"}]], \n     \
+Quiet[DeleteFile[FileNameJoin[{out, \"_SUCCESS.json\"}]]]]; \n    summary = \
+Join[$RunState, Association[\"status\" -> status, \"success\" -> False, \n    \
+   \"manuscript_usable\" -> False, \"output_directory\" -> out, \
+\"finished_at\" -> \n        DateString[\"ISODateTime\"], \"error\" -> \
+ToString[failure, InputForm], \n       \"completion_message\" -> \
+If[TrueQ[interrupted], \n         \"Calculation interrupted; saved \
+checkpoints can be used to resume.\", \n         \"Calculation failed; \
+inspect the error and saved checkpoints.\"], \n       \"result_file\" -> \
+FileNameJoin[{out, \"results.wxf\"}], \n       \"manifest\" -> \
+FileNameJoin[{out, \"run_manifest.json\"}]]]; \n    If[DirectoryQ[out], \
+standaloneAtomic[FileNameJoin[{out, \"run_manifest.json\"}], summary, \n      \
+ \"RawJSON\"]; standaloneAtomic[FileNameJoin[{out, \"progress.json\"}], \
+summary, \"RawJSON\"]; \n      write = standaloneAtomic[FileNameJoin[{out, \
+If[TrueQ[interrupted], \"_INTERRUPTED.json\", \n           \
+\"_FAILED.json\"]}], summary, \"RawJSON\"]; If[FailureQ[write], \n       \
+summary = Join[summary, Association[\"terminal_status_storage_error\" -> \n   \
+        ToString[write, InputForm]]]]]; $RunState = summary; \n    \
+Print[summary[\"completion_message\"], \"\\nOutput directory:\", out]; \
+summary]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"Null"}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunStandalone[directory_:Automatic, \
+overrides_:Association[]] := \n  Module[{defaults, controls, out, existed, \
+old, prodOptions, cmbOptions, production, config, rows, \n    extrema, pbh, \
+observations = None, cmb = None, files = {}, required, artifactRows, \
+inventory, \n    bundle, marker, status, message, result, fresh, test, \
+includeCMB, includeFigures, scope, \n    started, interrupted = False, \
+written, summary, nativeDirectory, cmbDirectory, fitFile, \n    resultPath, \
+manifestPath}, If[ !AssociationQ[overrides], \n     \
+Return[standaloneFailure[\"Configuration\", \"Run options must be an \
+Association.\"]]]; \n    defaults = Association[\"fresh\" -> True, \
+\"test_mode\" -> False, \"include_cmb\" -> True, \n      \"generate_figures\" \
+-> True, \"production_overrides\" -> Association[], \n      \"cmb_overrides\" \
+-> Association[\"resolution\" -> \"fine\"], \"observations\" -> Automatic]; \
+\n    controls = Join[defaults, overrides]; \n    If[ \
+!AllTrue[Lookup[controls, {\"fresh\", \"test_mode\", \"include_cmb\", \
+\"generate_figures\"}], \n        MemberQ[{True, False}, #1] & ] ||  \
+!AssociationQ[controls[\"production_overrides\"]] || \n       \
+!AssociationQ[controls[\"cmb_overrides\"]], \
+Return[standaloneFailure[\"Configuration\", \n       \"Switches must be True \
+or False and parameters must be Associations.\"]]]; \n    out = If[directory \
+=== Automatic, FileNameJoin[{$ProjectRoot, \"runs\", \n        \
+StringJoin[DateString[{\"Year\", \"Month\", \"Day\", \"_\", \"Hour\", \
+\"Minute\", \"Second\"}], \"_\", \n         StringTake[CreateUUID[], 8]]}], \
+If[StringQ[directory], ExpandFileName[directory], \n       \
+Return[standaloneFailure[\"Configuration\", \n         \"Output directory \
+must be a path string or Automatic.\"]]]]; fresh = controls[\"fresh\"]; \n    \
+existed = DirectoryQ[out]; If[fresh && existed, \
+Return[standaloneFailure[\"ExistingRun\", \n       \"A new calculation \
+requires a new output directory.\", \n       Association[\"output_directory\" \
+-> out]]]]; \n    If[ !fresh, If[ !existed ||  \
+!FileExistsQ[FileNameJoin[{out, \"config.json\"}]], \n       \
+Return[standaloneFailure[\"UnknownRun\", \"Resume requires an existing run \
+directory.\"]]]; \n      old = Quiet[Check[Import[FileNameJoin[{out, \
+\"config.json\"}], \"RawJSON\"], $Failed]]; \n      If[ !AssociationQ[old] || \
+Lookup[old, \"format_version\", None] =!= \n         \
+\"qsfi-standalone-native-v1\" ||  !AssociationQ[Lookup[old, \"controls\", \
+None]], \n       Return[standaloneFailure[\"UnknownRun\", \"The directory is \
+not a recognized run.\"]]]; \n      controls = Join[defaults, \
+old[\"controls\"], overrides, Association[\"fresh\" -> False]]; \n      If[ \
+!standaloneControlsQ[controls], Return[standaloneFailure[\"Configuration\", \
+\n         \"The saved resume configuration is invalid.\"]]]]; \n    If[ \
+!fresh && existed && FileExistsQ[FileNameJoin[{out, \"_SUCCESS.json\"}]], \n  \
+   Return[standaloneFailure[\"CompletedRun\", \n       \"This run is \
+complete; use LoadRunResults or select a new directory.\", \n       \
+Association[\"output_directory\" -> out]]]]; \n    \
+If[Quiet[Check[EnsureDirectory[out], $Failed]] === $Failed, \n     \
+Return[standaloneFailure[\"ResultStorage\", \"Could not create the output \
+directory.\"]]]; \n    test = TrueQ[controls[\"test_mode\"]]; includeCMB = \
+TrueQ[controls[\"include_cmb\"]]; \n    includeFigures = \
+TrueQ[controls[\"generate_figures\"]]; \n    scope = If[includeCMB, \"full\", \
+\"pbh_only\"]; started = AbsoluteTime[]; \n    $RunState = \
+Association[\"status\" -> \"running\", \"success\" -> False, \"run_id\" -> \
+CreateUUID[], \n      \"phase\" -> \"initializing\", \"scope\" -> scope, \
+\"output_directory\" -> out, \n      \"include_cmb\" -> includeCMB, \
+\"test_mode\" -> test, \"started_at\" -> DateString[\"ISODateTime\"], \n      \
+\"started_absolute_time\" -> started, \"completed_cases\" -> 0, \n      \
+\"message\" -> \"Native calculation started.\"]; nativeDirectory = \n     \
+FileNameJoin[{out, \"production\"}]; cmbDirectory = FileNameJoin[{out, \
+\"cmb\"}]; \n    resultPath = FileNameJoin[{out, \"results.wxf\"}]; \n    \
+manifestPath = FileNameJoin[{out, \"run_manifest.json\"}]; \n    result = \
+CheckAbort[Catch[standaloneNeed[standaloneAtomic[FileNameJoin[{out, \
+\"config.json\"}], \n          Association[\"schema_version\" -> 1, \
+\"format_version\" -> \"qsfi-standalone-native-v1\", \n           \
+\"controls\" -> controls, \"runtime\" -> $Version], \"RawJSON\"]]; \n        \
+standaloneNeed[standaloneAtomic[manifestPath, $RunState, \"RawJSON\"]]; \n    \
+    If[includeCMB, standaloneNeed[standaloneState[out, Association[\n         \
+    \"phase\" -> \"validating_observations\", \"message\" -> \"Checking \
+observational input.\"]]]; \n          observations = \
+standaloneNeed[standaloneRawObservations[controls[\"observations\"], \n       \
+      test]]]; If[includeCMB, standaloneNeed[standaloneAtomic[\n           \
+FileNameJoin[{out, \"observations_used.wxf\"}], observations, \"WXF\"]]]; \n  \
+      standaloneNeed[standaloneState[out, Association[\"phase\" -> \
+\"native_integration\", \n           \"message\" -> \"Computing coefficients \
+from propagators and Sobol integration.\"]]]; \n        prodOptions = \
+Join[If[test, standaloneTestProduction[], Association[]], \n          \
+controls[\"production_overrides\"], Association[\"fresh\" -> fresh, \
+\"generate_figures\" -> \n            False]]; production = \
+Block[{$RunReporter = Function[event, standaloneState[out, \n              \
+event]]}, RunProduction[nativeDirectory, prodOptions]]; \
+standaloneNeed[production]; \n        If[ !AssociationQ[production] ||  \
+!TrueQ[Lookup[production, \"sampling_precision_accepted\", \n             \
+False]] ||  !ListQ[Lookup[production, \"coefficients\", None]], \n         \
+Throw[standaloneFailure[\"NativeResults\", \n           \"Integration did not \
+produce coefficients meeting the sampling criterion.\"], \n          \
+standaloneAbort]]; rows = production[\"coefficients\"]; \n        config = \
+Lookup[production, \"configuration\", ProductionConfig[prodOptions]]; \n      \
+  If[rows === {} ||  !AllTrue[rows, AssociationQ[#1] && AllTrue[Lookup[#1, \n \
+               {\"r_s\", \"nu_tilde\", \"C3_hat\", \"C4_contact_hat\", \
+\"C4_exchange_hat\"}, Indeterminate], \n               finiteRealQ] & ], \
+Throw[standaloneFailure[\"NativeResults\", \n           \"The computed \
+coefficients are incomplete or nonfinite.\"], standaloneAbort]]; \n        \
+standaloneNeed[standaloneState[out, Association[\"phase\" -> \
+\"pbh_analysis\", \n           \"completed_cases\" -> Length[rows], \
+\"message\" -> \n            \"Computing extrema and PBH constraints.\"]]]; \
+\n        extrema = standaloneNeed[ComputeExtrema[rows, config]]; \n        \
+pbh = standaloneNeed[ComputePBHConstraints[rows]]; \n        If[ \
+!ListQ[extrema] ||  !AssociationQ[pbh] ||  !AllTrue[Flatten[Values[pbh]], \
+finiteRealQ], \n         Throw[standaloneFailure[\"PBHResults\", \"PBH \
+results are incomplete or nonfinite.\"], \n          standaloneAbort]]; \
+If[includeCMB, standaloneNeed[standaloneState[out, \n            \
+Association[\"phase\" -> \"cmb_fit\", \"message\" -> \n              \
+\"Computing and fitting the CMB template.\"]]]; cmbOptions = \n           \
+Join[controls[\"cmb_overrides\"], If[test, standaloneTestCMB[], \
+Association[]]]; \n          cmb = Block[{$RunReporter = Function[event, \
+standaloneState[out, event]]}, \n            RunCMBFit[cmbDirectory, \
+observations[\"data\"], cmbOptions]]; standaloneNeed[cmb]; \n          If[ \
+!AssociationQ[cmb] ||  !finiteRealQ[Lookup[cmb, \"mean\", None]] || \n        \
+     !positiveRealQ[Lookup[cmb, \"sigma\", None]], \
+Throw[standaloneFailure[\"CMBResults\", \n             \"CMB fitting did not \
+return a valid fit.\"], standaloneAbort]]]; \n        \
+standaloneNeed[standaloneState[out, Association[\"phase\" -> \
+\"saving_tables\", \n           \"message\" -> \"Saving tables and fit \
+results.\"]]]; standaloneNeed[\n         standaloneCSV[FileNameJoin[{out, \
+\"coefficients.csv\"}], \n          (KeyTake[#1, {\"r_s\", \"nu_tilde\", \
+\"C3_hat\", \"C4_contact_hat\", \"C4_exchange_hat\", \n              \
+\"C3_hat_standard_error\", \"C4_contact_hat_standard_error\", \n              \
+\"C4_exchange_hat_standard_error\"}] & ) /@ rows]]; standaloneNeed[\n         \
+standaloneCSV[FileNameJoin[{out, \"extrema.csv\"}], extrema]]; \n        \
+standaloneNeed[standaloneAtomic[FileNameJoin[{out, \
+\"pbh_constraints.json\"}], pbh, \n          \"RawJSON\"]]; If[includeCMB, \
+standaloneNeed[standaloneAtomic[\n           FileNameJoin[{out, \
+\"cmb_fit.json\"}], KeyDrop[cmb, {\"x\", \"y\", \"shape_hat\", \n             \
+\"template_per_lambda3\"}], \"RawJSON\"]]]; If[includeFigures, \n         \
+standaloneNeed[standaloneState[out, Association[\"phase\" -> \"figures\", \n  \
+           \"message\" -> \"Exporting figures.\"]]]; files = \
+Join[standaloneNeed[\n             standaloneExport[out, DiagramFigure[], \
+\"qsfi_diagrams\"]], standaloneNeed[\n             standaloneExport[out, \
+ContributionFigure[extrema], \"r3_relative_contribution_bars\"]], \n          \
+  standaloneNeed[standaloneExport[out, TailFigure[rows, extrema], \
+\"tail_and_abundance\"]], \n            standaloneNeed[standaloneExport[out, \
+CouplingGridFigure[rows, extrema, \"peak_ratio\", \n               config], \
+\"sound_speed_comparison_full\"]], standaloneNeed[standaloneExport[out, \n    \
+          CouplingGridFigure[rows, extrema, \"log10_beta_ratio\", config], \n \
+             \"sound_speed_log10_beta_ratio_full\"]]]; If[includeCMB, \n      \
+     files = Join[files, standaloneNeed[standaloneExport[out, \
+ObservationalFigure[pbh, cmb], \n               \
+\"observational_constraints\"]]]]]; standaloneNeed[standaloneState[out, \n    \
+      Association[\"phase\" -> \"finalizing\", \"message\" -> \n            \
+\"Verifying results before writing the completion marker.\"]]]; \n        \
+status = If[test ||  !TrueQ[Lookup[production, \"manuscript_usable\", False]] \
+|| \n           (includeCMB &&  !standaloneCanonicalCMB[cmb, \
+observations[\"provenance\"]]), \n          \"custom_success\", \"success\"]; \
+message = Which[test, \n          \"Test completed (not production \
+precision)\", status == \"custom_success\", \n          \"Custom calculation \
+completed (not production precision)\", True, \n          \"Calculation \
+completed\"]; bundle = Association[\"schema_version\" -> \n           \
+\"qsfi-standalone-native-v1\", \"status\" -> status, \"success\" -> True, \n  \
+        \"completion_message\" -> message, \"scope\" -> scope, \
+\"include_cmb\" -> includeCMB, \n          \"test_mode\" -> test, \
+\"manuscript_usable\" -> status == \"success\", \n          \
+\"output_directory\" -> out, \"started_at\" -> $RunState[\"started_at\"], \n  \
+        \"finished_at\" -> DateString[\"ISODateTime\"], \"elapsed_seconds\" \
+-> \n           N[AbsoluteTime[] - started], \"source\" -> \
+\"new_native_mathematica_calculation\", \n          \
+\"archived_theory_results_loaded\" -> False, \"configuration\" -> config, \n  \
+        \"controls\" -> controls, \"coefficients\" -> rows, \"extrema\" -> \
+extrema, \n          \"pbh_constraints\" -> pbh, \"cmb_fit\" -> cmb, \
+\"observations\" -> \n           If[includeCMB, observations[\"provenance\"], \
+None], \"observation_data\" -> \n           If[includeCMB, \
+observations[\"data\"], None], \"production\" -> production, \n          \
+\"figures\" -> files]; standaloneNeed[standaloneAtomic[resultPath, bundle, \
+\"WXF\"]]; \n        required = Join[{resultPath, FileNameJoin[{out, \
+\"config.json\"}], \n           FileNameJoin[{out, \"coefficients.csv\"}], \
+FileNameJoin[{out, \"extrema.csv\"}], \n           FileNameJoin[{out, \
+\"pbh_constraints.json\"}]}, files, If[includeCMB, \n           \
+{FileNameJoin[{out, \"cmb_fit.json\"}], FileNameJoin[{out, \
+\"observations_used.wxf\"}]}, \n           {}], Lookup[Lookup[production, \
+\"scan_chunks\", {}], \"file\", {}]]; \n        artifactRows = \
+(standaloneNeed[standaloneArtifact[out, #1]] & ) /@ \n          \
+DeleteDuplicates[required]; inventory = Association[\n          (#1[\"path\"] \
+-> KeyDrop[#1, \"path\"] & ) /@ artifactRows]; \n        summary = \
+Join[KeyTake[bundle, {\"status\", \"success\", \"completion_message\", \
+\"scope\", \n            \"include_cmb\", \"test_mode\", \
+\"manuscript_usable\", \"output_directory\", \"started_at\", \n            \
+\"finished_at\", \"elapsed_seconds\"}], Association[\"phase\" -> \
+\"completed\", \n           \"completed_cases\" -> Length[rows], \
+\"result_file\" -> resultPath, \n           \"manifest\" -> manifestPath, \
+\"artifact_inventory\" -> inventory, \"results_sha256\" -> \n            \
+standaloneHash[resultPath]]]; standaloneNeed[standaloneAtomic[manifestPath, \
+summary, \n          \"RawJSON\"]]; marker = Association[\"schema_version\" \
+-> 1, \"status\" -> status, \n          \"success\" -> True, \"scope\" -> \
+scope, \"completion_message\" -> message, \n          \"manuscript_usable\" \
+-> summary[\"manuscript_usable\"], \"result_file\" -> \"results.wxf\", \n     \
+     \"results_sha256\" -> summary[\"results_sha256\"], \
+\"artifact_inventory\" -> inventory, \n          \"finished_at\" -> \
+summary[\"finished_at\"]]; standaloneNeed[standaloneAtomic[\n          \
+FileNameJoin[{out, \"progress.json\"}], summary, \"RawJSON\"]]; \n        \
+Scan[If[FileExistsQ[#1], DeleteFile[#1]] & , (FileNameJoin[{out, #1}] & ) /@ \
+\n          {\"_FAILED.json\", \"_INTERRUPTED.json\"}]; \
+standaloneNeed[standaloneAtomic[\n          FileNameJoin[{out, \
+\"_SUCCESS.json\"}], marker, \"RawJSON\"]]; \n        \
+If[FailureQ[LoadRunResults[out]], \
+Throw[standaloneFailure[\"FinalVerification\", \n           \"Saved result \
+verification failed.\"], standaloneAbort]]; $RunState = summary; \n        \
+Print[message, \"\\nResults saved:\", out, \"\\nCompletion \
+marker:_SUCCESS.json\"]; summary, \n       standaloneAbort], interrupted = \
+True; standaloneFailure[\"Interrupted\", \n        \"Calculation interrupted \
+by user.\"]]; If[FailureQ[result] || result === $Failed || \n      result === \
+$Aborted, standaloneTerminalFailure[out, result, interrupted], result]]; "}]]\
+, "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LoadRunResults[directory_String] := Module[{out = \
+ExpandFileName[directory], marker, path, \n    expected, inventory, valid, \
+payload}, \n   marker = Quiet[Check[Import[FileNameJoin[{out, \
+\"_SUCCESS.json\"}], \"RawJSON\"], $Failed]]; \n    If[ !AssociationQ[marker] \
+||  !TrueQ[Lookup[marker, \"success\", False]], \n     \
+Return[standaloneFailure[\"IncompleteRun\", \"No verified completion marker \
+was found.\"]]]; \n    If[Lookup[marker, \"result_file\", None] =!= \
+\"results.wxf\", \n     Return[standaloneFailure[\"ResultIntegrity\", \"The \
+result file location is invalid.\"]]]; \n    path = FileNameJoin[{out, \
+\"results.wxf\"}]; expected = Lookup[marker, \"results_sha256\", None]; \n    \
+If[ !FileExistsQ[path] ||  !StringQ[expected] || standaloneHash[path] =!= \
+expected, \n     Return[standaloneFailure[\"ResultIntegrity\", \n       \"The \
+result file is missing or its checksum does not match.\"]]]; \n    inventory \
+= Lookup[marker, \"artifact_inventory\", None]; \n    If[ \
+!AssociationQ[inventory] || inventory === Association[], \n     \
+Return[standaloneFailure[\"ResultIntegrity\", \n       \"The completion \
+marker lacks an artifact inventory.\"]]]; \n    valid = And @@ \
+KeyValueMap[Function[{relative, spec}, StringQ[relative] && \n          \
+!MemberQ[FileNameSplit[relative], \"..\"] &&  !StringStartsQ[relative, \n     \
+      $PathnameSeparator] &&  !StringMatchQ[relative, \
+RegularExpression[\"[A-Za-z]:.*\"]] && \n         AssociationQ[spec] && \
+With[{file = FileNameJoin[{out, relative}]}, \n          FileExistsQ[file] && \
+ !DirectoryQ[file] && FileByteCount[file] == \n            Lookup[spec, \
+\"bytes\", -1] && standaloneHash[file] === Lookup[spec, \"sha256\", None]]], \
+\n       inventory]; If[ !TrueQ[valid], \
+Return[standaloneFailure[\"ResultIntegrity\", \n       \"Saved results are \
+missing, empty, or failed checksum verification.\"]]]; \n    payload = \
+Quiet[Check[Import[path, \"WXF\"], $Failed]]; \n    If[ \
+!AssociationQ[payload] ||  !TrueQ[Lookup[payload, \"success\", False]] || \n  \
+    Lookup[payload, \"source\", None] =!= \
+\"new_native_mathematica_calculation\", \n     \
+standaloneFailure[\"ResultIntegrity\", \"The saved result bundle is \
+invalid.\"], payload]]; "}]], "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"LoadRunResults[___] := \
+standaloneFailure[\"Configuration\", \"Supply the run directory path.\"]; "}]]\
+, "Input", InitializationCell -> True], Cell[BoxData[RowBox[{"Null"}]], 
+   "Input", InitializationCell -> True], 
+  Cell[BoxData[RowBox[{"RunStatusPanel[input_] := Module[{state, status, \
+title, color, path, phase, labels, elapsed}, \n   state = \
+Which[AssociationQ[input], input, StringQ[input], \n      \
+Quiet[Check[Import[FileNameJoin[{input, \"progress.json\"}], \"RawJSON\"], \
+Association[]]], \n      FailureQ[input], Association[\"status\" -> \
+\"failed\", \"success\" -> False, \n       \"error\" -> ToString[input, \
+InputForm]], True, Association[]]; \n    If[ !AssociationQ[state], state = \
+Association[]]; \n    If[StringQ[input] && MemberQ[{\"success\", \
+\"custom_success\"}, Lookup[state, \"status\", None]] && \n       \
+!FileExistsQ[FileNameJoin[{input, \"_SUCCESS.json\"}]], \n     state = \
+Join[state, Association[\"status\" -> \"running\", \"success\" -> False, \n   \
+     \"phase\" -> \"finalizing\"]]]; status = Lookup[state, \"status\", \
+\"not_started\"]; \n    title = Switch[status, \"success\", \"Calculation \
+completed\", \"custom_success\", \n      Lookup[state, \
+\"completion_message\", \n       \"Test or custom calculation completed (not \
+production precision)\"], \"running\", \"Running\", \n      \"failed\", \
+\"Calculation failed\", \"interrupted\", \"Calculation interrupted\", _, \
+\"Not started\"]; \n    color = Switch[status, \"success\", Darker[Green], \
+\"custom_success\", RGBColor[0.12, 0.35, 0.65], \n      \"failed\", \
+Darker[Red], \"interrupted\", Darker[Orange], _, GrayLevel[0.3]]; \n    \
+labels = Association[\"idle\" -> \"Waiting\", \"initializing\" -> \
+\"Initialization\", \n      \"validating_observations\" -> \"Checking \
+observational data\", \"native_integration\" -> \n       \"Momentum \
+integration\", \"pbh_analysis\" -> \"PBH analysis\", \"cmb_fit\" -> \"CMB \
+fitting\", \n      \"native_cmb\" -> \"CMB fitting\", \"native_storage\" -> \
+\"Saving production results\", \n      \"saving_tables\" -> \"Saving \
+results\", \"figures\" -> \"Exporting figures\", \n      \"finalizing\" -> \
+\"Verifying saved results\", \"completed\" -> \"All requested steps \
+completed\"]; \n    phase = Lookup[labels, Lookup[state, \"phase\", \
+\"idle\"], Lookup[state, \"phase\", \"\"]]; \n    path = Lookup[state, \
+\"output_directory\", \"Not created\"]; \n    elapsed = If[status == \
+\"running\" && NumericQ[Lookup[state, \"started_absolute_time\", None]], \n   \
+   AbsoluteTime[] - state[\"started_absolute_time\"], Lookup[state, \
+\"elapsed_seconds\", 0]]; \n    Panel[Column[{Style[title, 18, Bold, color], \
+Grid[{{\"Stage\", phase}, \n         {\"Cases \
+completed\", StringJoin[ToString[Lookup[state, \"completed_cases\", 0]], \
+\"/\", \n           ToString[Lookup[state, \"total_cases\", Lookup[state, \
+\"completed_cases\", \"?\"]]]]}, \n         {\"Current parameters\", \
+Row[{\"r_s = \", Lookup[state, \"r_s\", \"\[LongDash]\"], \", nu_tilde = \", \
+\n            Lookup[state, \"nu_tilde\", \"\[LongDash]\"]}]}, {\"Integration \
+stage\", \n          Lookup[Association[\"propagator_grid\" -> \"Propagator \
+grid\", \"ratio_table\" -> \n             \"Momentum ratio table\", \
+\"bispectrum\" -> \"Bispectrum\", \"contact\" -> \"Contact\", \n            \
+\"exchange\" -> \"Exchange\", \"scan_export\" -> \"Saving coupling scans\"], \
+\n           Lookup[state, \"stage\", \"\"], \"\[LongDash]\"]}, {\"Sampling \
+progress\", \n          StringJoin[ToString[Lookup[state, \
+\"sample_completed\", \"\[LongDash]\"]], \"/\", \n           \
+ToString[Lookup[state, \"sample_total\", \"\[LongDash]\"]]]}, {\"Scans \
+saved\", \n          StringJoin[ToString[Lookup[state, \"scan_completed\", \
+\"\[LongDash]\"]], \"/\", \n           ToString[Lookup[state, \"scan_total\", \
+\"\[LongDash]\"]]]}, {\"Elapsed seconds\", Round[elapsed]}, \n         \
+{\"Output directory\", path}, {\"Details\", Lookup[state, \"message\", \n     \
+      Lookup[state, \"completion_message\", \"\"]]}}, Alignment -> Left], \n  \
+     If[MemberQ[{\"failed\", \"interrupted\"}, status], Style[Lookup[state, \
+\"error\", \"\"], \n         Darker[Red]], \"\"]}, Spacings -> 1], Background \
+-> Lighter[color, 0.94], \n     FrameMargins -> 14]]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"End[]; "}]], "Input", 
+   InitializationCell -> True], Cell[BoxData[RowBox[{"EndPackage[]; "}]], 
+   "Input", InitializationCell -> True]}, WindowSize -> {1280, 900}, 
+ DefaultNewCellStyle -> "Input", StyleDefinitions -> "Default.nb"]
